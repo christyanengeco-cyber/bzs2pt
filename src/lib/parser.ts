@@ -1,4 +1,5 @@
 import { uid, type Paragrafo, type Publicacao, type TipoPub } from "./db";
+import { baixarPagina } from "./fetch-page.functions";
 
 const PROXIES = [
   (u: string) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
@@ -7,6 +8,11 @@ const PROXIES = [
 
 async function fetchProxy(url: string): Promise<string> {
   let lastErr: unknown;
+  try {
+    return (await baixarPagina({ data: { url } })).texto;
+  } catch (e) {
+    lastErr = e;
+  }
   for (const p of PROXIES) {
     try {
       const r = await fetch(p(url));
@@ -16,7 +22,31 @@ async function fetchProxy(url: string): Promise<string> {
       lastErr = e;
     }
   }
-  throw new Error("Não foi possível baixar a página (proxy indisponível). " + String(lastErr));
+  throw new Error("Não foi possível baixar a página. " + (lastErr instanceof Error ? lastErr.message : String(lastErr)));
+}
+
+export interface ArtigoRevista { titulo: string; url: string }
+
+/** Se o link for o sumário de uma revista, devolve a lista de artigos; senão, lista vazia. */
+export async function listarArtigos(url: string): Promise<ArtigoRevista[]> {
+  const html = await fetchProxy(url);
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  if (doc.querySelectorAll("p[data-pid]").length > 5) return [];
+  const base = new URL(url);
+  const basePath = base.pathname.endsWith("/") ? base.pathname : base.pathname + "/";
+  const vistos = new Map<string, string>();
+  doc.querySelectorAll("a[href]").forEach((a) => {
+    let u: URL;
+    try { u = new URL(a.getAttribute("href")!, url); } catch { return; }
+    if (u.hostname !== base.hostname || !u.pathname.startsWith(basePath) || u.pathname === basePath) return;
+    const href = u.origin + u.pathname;
+    const t = a.textContent?.replace(/\s+/g, " ").trim() ?? "";
+    if (t.length > (vistos.get(href)?.length ?? 0)) vistos.set(href, t);
+  });
+  return Array.from(vistos, ([u, t]) => ({
+    url: u,
+    titulo: t || decodeURIComponent(u.split("/").filter(Boolean).pop() ?? "").replace(/-/g, " "),
+  }));
 }
 
 /** "00:01:23.500" | "1:23" | "83" -> segundos */

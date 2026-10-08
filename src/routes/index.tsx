@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { BookOpen, CalendarDays, Link2, Loader2, Plus, Trash2, X } from "lucide-react";
+import { BookOpen, CalendarDays, Check, Link2, Loader2, Plus, Trash2, X } from "lucide-react";
 import { excluirPublicacao, listarPublicacoes, salvarPublicacao, type Publicacao, type TipoPub } from "@/lib/db";
-import { importarUrl } from "@/lib/parser";
+import { importarUrl, listarArtigos, type ArtigoRevista } from "@/lib/parser";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 export const Route = createFileRoute("/")({
@@ -101,55 +101,115 @@ function Biblioteca() {
 
 function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: (t: TipoPub) => void }) {
   const [url, setUrl] = useState("");
-  const [carregando, setCarregando] = useState(false);
+  const [carregando, setCarregando] = useState("");
   const [erro, setErro] = useState("");
   const [avisos, setAvisos] = useState<string[]>([]);
+  const [artigos, setArtigos] = useState<ArtigoRevista[] | null>(null);
+  const [feitos, setFeitos] = useState<Set<string>>(new Set());
+  const [ultimoTipo, setUltimoTipo] = useState<TipoPub | null>(null);
 
-  async function importar() {
+  async function importarUm(u: string) {
+    const r = await importarUrl(u);
+    await salvarPublicacao(r.publicacao, r.paragrafos);
+    setUltimoTipo(r.publicacao.tipo);
+    return r;
+  }
+
+  async function buscar() {
     setErro(""); setAvisos([]);
-    try { new URL(url); } catch { setErro("Cole um link válido do jw.org."); return; }
-    setCarregando(true);
+    try { new URL(url.trim()); } catch { setErro("Cole um link válido do jw.org."); return; }
+    setCarregando("Abrindo...");
     try {
-      const r = await importarUrl(url.trim());
-      await salvarPublicacao(r.publicacao, r.paragrafos);
+      const lista = await listarArtigos(url.trim());
+      if (lista.length) { setArtigos(lista); return; }
+      const r = await importarUm(url.trim());
       if (r.avisos.length) { setAvisos(r.avisos); setTimeout(() => onDone(r.publicacao.tipo), 3500); }
       else onDone(r.publicacao.tipo);
     } catch (e) {
       setErro(e instanceof Error ? e.message : String(e));
     } finally {
-      setCarregando(false);
+      setCarregando("");
     }
   }
 
+  async function importarVarios(lista: ArtigoRevista[]) {
+    setErro("");
+    for (const a of lista) {
+      if (feitos.has(a.url)) continue;
+      setCarregando(a.url);
+      try {
+        await importarUm(a.url);
+        setFeitos((s) => new Set(s).add(a.url));
+      } catch (e) {
+        setErro(`${a.titulo}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    setCarregando("");
+  }
+
+  const fechar = () => (ultimoTipo ? onDone(ultimoTipo) : onClose());
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/70 backdrop-blur-sm sm:items-center" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-t-3xl border bg-card p-6 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/70 backdrop-blur-sm sm:items-center" onClick={fechar}>
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border bg-card p-6 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold">Importar do jw.org</h2>
-          <button onClick={onClose} aria-label="Fechar"><X className="h-5 w-5" /></button>
+          <h2 className="text-xl font-bold">{artigos ? "Artigos da revista" : "Importar do jw.org"}</h2>
+          <button onClick={fechar} aria-label="Fechar"><X className="h-5 w-5" /></button>
         </div>
-        <label className="mb-2 block text-sm text-muted-foreground">Link da matéria em Libras</label>
-        <div className="flex items-center gap-2 rounded-xl border bg-background px-3">
-          <Link2 className="h-4 w-4 text-muted-foreground" />
-          <input
-            autoFocus
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://www.jw.org/bzs/..."
-            className="w-full bg-transparent py-3 outline-none"
-            inputMode="url"
-          />
-        </div>
-        {erro && <p className="mt-3 text-sm text-destructive">{erro}</p>}
-        {avisos.map((a) => <p key={a} className="mt-3 rounded-lg bg-accent p-2 text-sm text-accent-foreground">{a}</p>)}
-        <button
-          disabled={carregando || !url}
-          onClick={importar}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 font-bold text-primary-foreground disabled:opacity-50"
-        >
-          {carregando && <Loader2 className="h-5 w-5 animate-spin" />}
-          {carregando ? "Importando..." : "Importar e salvar"}
-        </button>
+        {artigos ? (
+          <>
+            <ul className="space-y-2">
+              {artigos.map((a) => (
+                <li key={a.url} className="flex items-center gap-2 rounded-xl border bg-background p-3">
+                  <p className="min-w-0 flex-1 text-sm font-semibold leading-snug">{a.titulo}</p>
+                  {feitos.has(a.url) ? (
+                    <Check className="h-5 w-5 text-primary" />
+                  ) : carregando === a.url ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  ) : (
+                    <button disabled={!!carregando} onClick={() => importarVarios([a])} className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-bold disabled:opacity-50">
+                      Importar
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {erro && <p className="mt-3 text-sm text-destructive">{erro}</p>}
+            <button
+              disabled={!!carregando || feitos.size === artigos.length}
+              onClick={() => importarVarios(artigos)}
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 font-bold text-primary-foreground disabled:opacity-50"
+            >
+              {carregando && <Loader2 className="h-5 w-5 animate-spin" />}
+              {carregando ? "Importando..." : "Importar todos"}
+            </button>
+          </>
+        ) : (
+          <>
+            <label className="mb-2 block text-sm text-muted-foreground">Link da revista ou da matéria</label>
+            <div className="flex items-center gap-2 rounded-xl border bg-background px-3">
+              <Link2 className="h-4 w-4 text-muted-foreground" />
+              <input
+                autoFocus
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://www.jw.org/bzs/..."
+                className="w-full bg-transparent py-3 outline-none"
+                inputMode="url"
+              />
+            </div>
+            {erro && <p className="mt-3 text-sm text-destructive">{erro}</p>}
+            {avisos.map((a) => <p key={a} className="mt-3 rounded-lg bg-accent p-2 text-sm text-accent-foreground">{a}</p>)}
+            <button
+              disabled={!!carregando || !url}
+              onClick={buscar}
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 font-bold text-primary-foreground disabled:opacity-50"
+            >
+              {carregando && <Loader2 className="h-5 w-5 animate-spin" />}
+              {carregando ? "Abrindo..." : "Continuar"}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
