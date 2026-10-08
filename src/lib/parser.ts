@@ -40,9 +40,9 @@ interface Marker {
 function findMarkers(obj: unknown, out: Marker[] = []): Marker[] {
   if (Array.isArray(obj)) obj.forEach((o) => findMarkers(o, out));
   else if (obj && typeof obj === "object") {
-    const o = obj as Record<string, unknown>;
+    const o = obj as any; // eslint-disable-line @typescript-eslint/no-explicit-any
     if (Array.isArray(o.markers)) {
-      for (const m of o.markers as Record<string, unknown>[]) {
+      for (const m of o.markers as any[]) {
         const st = m.startTime ?? m.start ?? m.time;
         if (st != null)
           out.push({ label: String(m.label ?? m.mepsParagraphId ?? ""), startTime: typeof st === "number" ? st : parseTempo(String(st)) });
@@ -130,7 +130,7 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
     (el, i, arr) => arr.indexOf(el) === i && !el.closest("nav, footer, header, figure, .footnote, .jsRelatedPubs"),
   );
   const seen = new Set<Element>();
-  const textos: { texto: string; pergunta: boolean; pid?: string }[] = [];
+  const textos: { texto: string; pergunta: boolean; pid?: string | undefined }[] = [];
   for (const el of nodes) {
     if (seen.has(el)) continue;
     seen.add(el);

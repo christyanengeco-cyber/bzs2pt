@@ -108,7 +108,7 @@ function Leitor() {
             <span className="w-10 text-xs tabular-nums text-muted-foreground">{fmt(tempo)}</span>
             <input type="range" min={0} max={dur || 0} step={0.1} value={tempo} onChange={(e) => { if (video.current) video.current.currentTime = +e.target.value; }} className="flex-1 accent-primary" aria-label="Progresso" />
             <button
-              onClick={() => { const n = VELOCIDADES[(VELOCIDADES.indexOf(vel) + 1) % VELOCIDADES.length]; setVel(n); if (video.current) video.current.playbackRate = n; }}
+              onClick={() => { const n = VELOCIDADES[(VELOCIDADES.indexOf(vel) + 1) % VELOCIDADES.length] ?? 1; setVel(n); if (video.current) video.current.playbackRate = n; }}
               className="w-14 rounded-lg bg-secondary py-1 text-xs font-bold"
             >
               {vel}x
