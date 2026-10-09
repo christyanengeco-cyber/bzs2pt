@@ -138,8 +138,12 @@ function Leitor() {
             onTouchEnd={onTouchEnd}
           />
         ) : (
-        ) : (
           <SemVideo onSave={async (u) => { const np = { ...pub, video_url: u }; await atualizarPublicacao(np); setPub(np); }} />
+        )}
+        {hud && (
+          <div className="pointer-events-none absolute left-1/2 top-[40%] z-10 -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-background/80 px-5 py-3 text-2xl font-bold tabular-nums backdrop-blur">
+            {hud}
+          </div>
         )}
         {pub.video_url && (
           <div className="flex items-center gap-3 bg-card/95 px-3 py-2">
@@ -149,10 +153,10 @@ function Leitor() {
             <span className="w-10 text-xs tabular-nums text-muted-foreground">{fmt(tempo)}</span>
             <input type="range" min={0} max={dur || 0} step={0.1} value={tempo} onChange={(e) => { if (video.current) video.current.currentTime = +e.target.value; }} className="flex-1 accent-primary" aria-label="Progresso" />
             <button
-              onClick={() => { const n = VELOCIDADES[(VELOCIDADES.indexOf(vel) + 1) % VELOCIDADES.length] ?? 1; setVel(n); if (video.current) video.current.playbackRate = n; }}
-              className="w-14 rounded-lg bg-secondary py-1 text-xs font-bold"
+              onClick={() => { const i = VELOCIDADES.indexOf(vel); aplicarVel(VELOCIDADES[(i + 1) % VELOCIDADES.length] ?? 1); }}
+              className="w-14 rounded-lg bg-secondary py-1 text-xs font-bold tabular-nums"
             >
-              {vel}x
+              {vel.toFixed(1)}x
             </button>
           </div>
         )}
