@@ -199,7 +199,7 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
       numero_ordem: i,
       texto_portugues: t.texto,
       pergunta: t.pergunta,
-      oculto: LIXO.test(t.texto) || undefined,
+      oculto: LIXO.test(t.texto),
       timestamp_inicio: ts,
     };
   });
