@@ -66,7 +66,7 @@ function findMp4(obj: unknown, out: string[] = []): string[] {
 interface Marker {
   label?: string;
   startTime: number;
-  docId?: string;
+  docId?: string | undefined;
 }
 function findMarkers(obj: unknown, out: Marker[] = []): Marker[] {
   if (Array.isArray(obj)) obj.forEach((o) => findMarkers(o, out));
