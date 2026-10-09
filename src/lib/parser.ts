@@ -185,15 +185,19 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
   if (!textos.length) throw new Error("Nenhum parágrafo encontrado nesta página.");
 
   const pubId = uid();
+  const usaPid = textos.some((t) => t.pid && markers.some((m) => m.label === t.pid));
+  let ultimo = 0;
   const paragrafos: Paragrafo[] = textos.map((t, i) => {
     const byPid = t.pid ? markers.find((m) => m.label === t.pid) : undefined;
+    const ts = usaPid ? (byPid?.startTime ?? ultimo) : (markers[i]?.startTime ?? 0);
+    ultimo = ts;
     return {
       id: uid(),
       publicacao_id: pubId,
       numero_ordem: i,
       texto_portugues: t.texto,
       pergunta: t.pergunta,
-      timestamp_inicio: byPid?.startTime ?? markers[i]?.startTime ?? 0,
+      timestamp_inicio: ts,
     };
   });
   if (!markers.length) avisos.push("Marcadores de tempo não encontrados — use o botão de relógio em cada parágrafo para sincronizar.");
