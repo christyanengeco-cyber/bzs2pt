@@ -10,4 +10,6 @@
 <!-- LOVABLE:END -->
 
 - All study data lives client-side in IndexedDB (src/lib/db.ts); no backend — the app must work offline per user.
-- jw.org import runs in the browser through public CORS proxies (src/lib/parser.ts); parsing is best-effort, so the reader offers manual video URL and per-paragraph timestamp sync.
+- jw.org import uses the app server fetch first and browser CORS proxies only as fallback, because mobile reliability matters while parsing remains best-effort.
+- Study week comparisons use normalized local ISO date ranges while preserving the original display label, because Portuguese labels vary between publications.
+- Backups use a versioned JSON envelope and restore transactionally, because all user data remains local and future formats must stay recoverable.

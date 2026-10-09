@@ -1,9 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { BookOpen, CalendarDays, Check, Link2, Loader2, Plus, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { BookOpen, CalendarDays, Check, Clock3, DatabaseBackup, Link2, Loader2, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { excluirPublicacao, listarPublicacoes, salvarPublicacao, type Publicacao, type TipoPub } from "@/lib/db";
 import { importarUrl, listarArtigos, type ArtigoRevista } from "@/lib/parser";
+import { escolherSemanaInicial, hojeIso, intervaloDaPublicacao, ordenarPorSemana } from "@/lib/study-dates";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { BackupDialog } from "@/components/BackupDialog";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -12,6 +15,8 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "Importe matérias do jw.org em Libras e estude com vídeo sincronizado ao texto." },
       { property: "og:title", content: "Biblioteca — Estudo em Libras" },
       { property: "og:description", content: "Estudo pessoal bilíngue Libras / Português, offline no seu celular." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Biblioteca,
@@ -19,217 +24,260 @@ export const Route = createFileRoute("/")({
 
 const ABAS: { id: TipoPub; nome: string }[] = [
   { id: "sentinela", nome: "A Sentinela" },
-  { id: "apostila", nome: "Apostila Vida e Ministério" },
+  { id: "apostila", nome: "Vida e Ministério" },
 ];
+
+const chaveSemana = (p: Publicacao) => intervaloDaPublicacao(p)?.inicio ?? `texto:${p.semana}`;
 
 function Biblioteca() {
   const [pubs, setPubs] = useState<Publicacao[]>([]);
   const [aba, setAba] = useState<TipoPub>("sentinela");
   const [aberto, setAberto] = useState(false);
+  const [backup, setBackup] = useState(false);
+  const semanaAtiva = useRef<HTMLButtonElement>(null);
+  const [selecionadas, setSelecionadas] = useState<Partial<Record<TipoPub, string>>>({});
   const recarregar = () => listarPublicacoes().then(setPubs);
   useEffect(() => { recarregar(); }, []);
-  const lista = pubs.filter((p) => p.tipo === aba);
+
+  const daAba = useMemo(() => pubs.filter((p) => p.tipo === aba).sort(ordenarPorSemana), [pubs, aba]);
+  const semanas = useMemo(() => {
+    const grupos = new Map<string, Publicacao[]>();
+    for (const p of daAba) grupos.set(chaveSemana(p), [...(grupos.get(chaveSemana(p)) ?? []), p]);
+    return Array.from(grupos, ([chave, estudos]) => {
+      const primeiro = estudos[0];
+      return { chave, estudos, intervalo: primeiro ? intervaloDaPublicacao(primeiro) : null };
+    });
+  }, [daAba]);
+
+  const escolhaPadrao = escolherSemanaInicial(daAba);
+  const publicacaoPadrao = escolhaPadrao ? daAba.find((p) => p.id === escolhaPadrao.id) : undefined;
+  const chavePadrao = publicacaoPadrao ? chaveSemana(publicacaoPadrao) : undefined;
+  const chaveSelecionada = semanas.some((s) => s.chave === selecionadas[aba]) ? selecionadas[aba] : chavePadrao;
+  const semanaSelecionada = semanas.find((s) => s.chave === chaveSelecionada);
+  const atual = semanaSelecionada?.intervalo
+    ? semanaSelecionada.intervalo.inicio <= hojeIso() && semanaSelecionada.intervalo.fim >= hojeIso()
+    : false;
+  useEffect(() => {
+    semanaAtiva.current?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [aba, chaveSelecionada]);
 
   return (
-    <div className="mx-auto min-h-screen max-w-2xl px-4 pb-28 pt-6">
-      <header className="mb-6 flex items-center justify-between">
+    <main className="mx-auto min-h-screen max-w-2xl pb-28">
+      <header className="flex items-center justify-between border-b px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">Libras · Português</p>
-          <h1 className="text-3xl font-bold">Meus estudos</h1>
+          <p className="text-xs font-semibold text-primary">Libras · Português</p>
+          <h1 className="text-2xl font-bold">Meus estudos</h1>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" aria-label="Backup e restauração" onClick={() => setBackup(true)}><DatabaseBackup /></Button>
+          <ThemeToggle />
+        </div>
       </header>
 
-      <div className="mb-5 grid grid-cols-2 gap-1 rounded-2xl bg-secondary p-1">
-        {ABAS.map((a) => (
-          <button
-            key={a.id}
-            onClick={() => setAba(a.id)}
-            className={`rounded-xl px-3 py-2.5 text-sm font-bold transition ${aba === a.id ? "bg-card text-foreground shadow" : "text-muted-foreground"}`}
+      <div className="grid grid-cols-2 border-b px-4 pt-2" role="tablist" aria-label="Publicação">
+        {ABAS.map((item) => (
+          <Button
+            key={item.id}
+            variant="ghost"
+            role="tab"
+            aria-selected={aba === item.id}
+            onClick={() => setAba(item.id)}
+            className={`h-11 rounded-none border-b-2 px-2 text-sm font-semibold shadow-none transition hover:bg-transparent ${aba === item.id ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
           >
-            {a.nome}
-          </button>
+            {item.nome}
+          </Button>
         ))}
       </div>
 
-      {lista.length === 0 ? (
-        <div className="rounded-2xl border border-dashed p-10 text-center text-muted-foreground">
-          <BookOpen className="mx-auto mb-3 h-10 w-10 text-primary" />
-          <p>Nenhuma matéria importada ainda.</p>
-          <p className="text-sm">Toque em “Importar” e cole um link do jw.org.</p>
-        </div>
-      ) : (
-        <ul className="space-y-3">
-          {lista.map((p) => (
-            <li key={p.id} className="flex items-stretch gap-2 rounded-2xl border bg-card">
-              <Link to="/estudo/$id" params={{ id: p.id }} className="min-w-0 flex-1 p-4">
-                <p className="mb-1 flex items-center gap-1.5 text-xs font-bold text-primary">
-                  <CalendarDays className="h-3.5 w-3.5" /> {p.semana}
-                </p>
-                <p className="font-display text-lg font-semibold leading-snug">{p.titulo}</p>
-              </Link>
-              <button
-                aria-label="Excluir"
-                onClick={async () => {
-                  if (confirm(`Excluir “${p.titulo}”?`)) { await excluirPublicacao(p.id); recarregar(); }
-                }}
-                className="px-4 text-muted-foreground hover:text-destructive"
-              >
-                <Trash2 className="h-5 w-5" />
-              </button>
-            </li>
-          ))}
-        </ul>
+      {semanas.length > 0 && (
+        <section className="border-b py-3" aria-label="Semanas disponíveis">
+          <div className="no-scrollbar flex snap-x gap-2 overflow-x-auto px-4">
+            {semanas.map((grupo) => {
+              const estaAtual = Boolean(grupo.intervalo && grupo.intervalo.inicio <= hojeIso() && grupo.intervalo.fim >= hojeIso());
+              return (
+                <Button
+                  key={grupo.chave}
+                  ref={grupo.chave === chaveSelecionada ? semanaAtiva : undefined}
+                  variant="outline"
+                  onClick={() => setSelecionadas((s) => ({ ...s, [aba]: grupo.chave }))}
+                  aria-pressed={grupo.chave === chaveSelecionada}
+                  className={`h-auto min-w-[9rem] snap-center justify-start rounded-none px-3 py-2 text-left shadow-none transition ${grupo.chave === chaveSelecionada ? "border-primary bg-selection" : "border-border bg-card"}`}
+                >
+                  <span className="min-w-0 whitespace-normal">
+                    <span className="block text-xs font-semibold text-primary">{estaAtual ? "Semana atual" : "Semana"}</span>
+                    <span className="line-clamp-2 text-sm font-medium">{grupo.estudos[0]?.semana}</span>
+                  </span>
+                </Button>
+              );
+            })}
+          </div>
+        </section>
       )}
 
-      <button
-        onClick={() => setAberto(true)}
-        className="fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-primary px-6 py-4 font-bold text-primary-foreground shadow-xl"
-      >
-        <Plus className="h-5 w-5" /> Importar matéria
-      </button>
+      <section className="px-4 py-5">
+        {daAba.length === 0 ? (
+          <div className="border border-dashed px-6 py-12 text-center text-muted-foreground">
+            <BookOpen className="mx-auto mb-3 h-9 w-9 text-primary" />
+            <p className="font-medium text-foreground">Nenhum estudo importado</p>
+            <p className="mt-1 text-sm">Importe uma revista ou uma matéria do jw.org.</p>
+          </div>
+        ) : (
+          <>
+            {!atual && semanaSelecionada && (
+              <p className="mb-3 flex items-center gap-2 text-xs text-muted-foreground"><Clock3 className="h-3.5 w-3.5" /> A semana atual ainda não foi importada. Mostrando a anterior mais recente.</p>
+            )}
+            <ul className="divide-y border-y">
+              {(semanaSelecionada?.estudos ?? []).map((p) => (
+                <li key={p.id} className="flex items-stretch">
+                  <Link to="/estudo/$id" params={{ id: p.id }} className="min-w-0 flex-1 py-4 pr-3">
+                    <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-primary"><CalendarDays className="h-3.5 w-3.5" /> {p.semana}</p>
+                    <p className="text-lg font-semibold leading-snug">{p.titulo}</p>
+                  </Link>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Excluir ${p.titulo}`}
+                    className="my-auto text-muted-foreground hover:text-destructive"
+                    onClick={async () => { if (confirm(`Excluir “${p.titulo}”?`)) { await excluirPublicacao(p.id); recarregar(); } }}
+                  ><Trash2 /></Button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
 
-      {aberto && (
-        <ImportModal
-          onClose={() => setAberto(false)}
-          onDone={(tipo) => { setAberto(false); setAba(tipo); recarregar(); }}
-        />
-      )}
-    </div>
+      <Button onClick={() => setAberto(true)} size="lg" className="fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 shadow-lg"><Plus /> Importar estudo</Button>
+      <BackupDialog aberto={backup} onOpenChange={setBackup} onRestored={recarregar} />
+      {aberto && <ImportModal existentes={new Set(pubs.map((p) => p.url_origem))} onClose={() => setAberto(false)} onDone={(tipo) => { setAberto(false); setAba(tipo); recarregar(); }} />}
+    </main>
   );
 }
 
-function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: (t: TipoPub) => void }) {
+type StatusImport = "aguardando" | "importando" | "concluido" | "erro" | "existente";
+
+function ImportModal({ existentes, onClose, onDone }: { existentes: Set<string>; onClose: () => void; onDone: (t: TipoPub) => void }) {
   const [url, setUrl] = useState("");
-  const [carregando, setCarregando] = useState("");
+  const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
   const [avisos, setAvisos] = useState<string[]>([]);
   const [artigos, setArtigos] = useState<ArtigoRevista[] | null>(null);
-  const [feitos, setFeitos] = useState<Set<string>>(new Set());
+  const [status, setStatus] = useState<Record<string, StatusImport>>({});
+  const [erros, setErros] = useState<Record<string, string>>({});
   const [ultimoTipo, setUltimoTipo] = useState<TipoPub | null>(null);
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
   const [inicio, setInicio] = useState<number | null>(null);
-  const [agora, setAgora] = useState(0);
+  const [agora, setAgora] = useState(Date.now());
   useEffect(() => {
     if (!carregando) { setInicio(null); return; }
-    const t0 = inicio ?? Date.now();
-    if (inicio == null) setInicio(t0);
-    setAgora(Date.now());
+    const t0 = Date.now(); setInicio(t0); setAgora(t0);
     const iv = setInterval(() => setAgora(Date.now()), 250);
     return () => clearInterval(iv);
-  }, [!!carregando]); // eslint-disable-line react-hooks/exhaustive-deps
-  const decorrido = inicio ? Math.max(0, Math.floor((agora - inicio) / 1000)) : 0;
-  const cron = carregando ? <span className="ml-1 text-xs font-normal tabular-nums opacity-80">{Math.floor(decorrido / 60)}:{String(decorrido % 60).padStart(2, "0")}</span> : null;
-  const alternarMarcado = (u: string) => setMarcados((s) => { const n = new Set(s); if (n.has(u)) n.delete(u); else n.add(u); return n; });
+  }, [carregando]);
+  const decorrido = inicio ? Math.floor((agora - inicio) / 1000) : 0;
+  const cron = carregando ? <span className="text-xs font-normal tabular-nums opacity-80">{Math.floor(decorrido / 60)}:{String(decorrido % 60).padStart(2, "0")}</span> : null;
+  const alternarMarcado = (u: string) => setMarcados((s) => { const n = new Set(s); n.has(u) ? n.delete(u) : n.add(u); return n; });
 
   async function importarUm(u: string) {
-    const r = await importarUrl(u);
-    await salvarPublicacao(r.publicacao, r.paragrafos);
-    setUltimoTipo(r.publicacao.tipo);
-    return r;
+    if (existentes.has(u) || status[u] === "concluido") { setStatus((s) => ({ ...s, [u]: "existente" })); return null; }
+    setStatus((s) => ({ ...s, [u]: "importando" }));
+    try {
+      const r = await importarUrl(u);
+      await salvarPublicacao(r.publicacao, r.paragrafos);
+      existentes.add(u);
+      setUltimoTipo(r.publicacao.tipo);
+      setStatus((s) => ({ ...s, [u]: "concluido" }));
+      return r;
+    } catch (e) {
+      const mensagem = e instanceof Error ? e.message : String(e);
+      setStatus((s) => ({ ...s, [u]: "erro" }));
+      setErros((s) => ({ ...s, [u]: mensagem }));
+      return null;
+    }
   }
 
   async function buscar() {
     setErro(""); setAvisos([]);
-    try { new URL(url.trim()); } catch { setErro("Cole um link válido do jw.org."); return; }
-    setCarregando("Abrindo...");
+    let limpa: string;
+    try { const parsed = new URL(url.trim()); if (!/(^|\.)jw\.org$/.test(parsed.hostname)) throw new Error(); limpa = parsed.href; }
+    catch { setErro("Cole um link válido do jw.org."); return; }
+    setCarregando(true);
     try {
-      const lista = await listarArtigos(url.trim());
-      if (lista.length) { setArtigos(lista); setMarcados(new Set(lista.map((a) => a.url))); return; }
-      const r = await importarUm(url.trim());
-      if (r.avisos.length) { setAvisos(r.avisos); setTimeout(() => onDone(r.publicacao.tipo), 3500); }
-      else onDone(r.publicacao.tipo);
+      const lista = await listarArtigos(limpa);
+      if (lista.length) {
+        setArtigos(lista);
+        setMarcados(new Set(lista.filter((a) => !existentes.has(a.url)).map((a) => a.url)));
+        setStatus(Object.fromEntries(lista.map((a) => [a.url, existentes.has(a.url) ? "existente" : "aguardando"])));
+        return;
+      }
+      if (existentes.has(limpa)) { setErro("Este estudo já foi importado."); return; }
+      const r = await importarUm(limpa);
+      if (r?.avisos.length) { setAvisos(r.avisos); return; }
+      if (r) onDone(r.publicacao.tipo);
     } catch (e) {
       setErro(e instanceof Error ? e.message : String(e));
-    } finally {
-      setCarregando("");
-    }
+    } finally { setCarregando(false); }
   }
 
   async function importarVarios(lista: ArtigoRevista[]) {
-    setErro("");
-    for (const a of lista) {
-      if (feitos.has(a.url)) continue;
-      setCarregando(a.url);
-      try {
-        await importarUm(a.url);
-        setFeitos((s) => new Set(s).add(a.url));
-      } catch (e) {
-        setErro(`${a.titulo}: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    }
-    setCarregando("");
+    setErro(""); setCarregando(true);
+    for (const artigo of lista) await importarUm(artigo.url);
+    setCarregando(false);
   }
 
-  const fechar = () => (ultimoTipo ? onDone(ultimoTipo) : onClose());
+  const pendentes = artigos?.filter((a) => marcados.has(a.url) && !["concluido", "existente"].includes(status[a.url] ?? "")) ?? [];
+  const falhos = artigos?.filter((a) => status[a.url] === "erro") ?? [];
+  const fechar = () => ultimoTipo ? onDone(ultimoTipo) : onClose();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/70 backdrop-blur-sm sm:items-center" onClick={fechar}>
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border bg-card p-6 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-overlay backdrop-blur-sm sm:items-center" onClick={fechar}>
+      <div role="dialog" aria-modal="true" aria-labelledby="import-title" className="max-h-[92dvh] w-full max-w-lg overflow-y-auto border bg-card p-5 sm:rounded-lg" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold">{artigos ? "Artigos da revista" : "Importar do jw.org"}</h2>
-          <button onClick={fechar} aria-label="Fechar"><X className="h-5 w-5" /></button>
+          <h2 id="import-title" className="text-xl font-bold">{artigos ? "Artigos da revista" : "Importar do jw.org"}</h2>
+          <Button variant="ghost" size="icon" onClick={fechar} aria-label="Fechar"><X /></Button>
         </div>
         {artigos ? (
           <>
-            <ul className="space-y-2">
-              {artigos.map((a) => (
-                <li key={a.url} className="flex items-center gap-2 rounded-xl border bg-background p-3">
-                  <input
-                    type="checkbox"
-                    aria-label={`Selecionar ${a.titulo}`}
-                    disabled={feitos.has(a.url) || !!carregando}
-                    checked={feitos.has(a.url) || marcados.has(a.url)}
-                    onChange={() => alternarMarcado(a.url)}
-                    className="h-5 w-5 shrink-0 accent-primary"
-                  />
-                  <p onClick={() => !carregando && !feitos.has(a.url) && alternarMarcado(a.url)} className="min-w-0 flex-1 text-sm font-semibold leading-snug">{a.titulo}</p>
-                  {feitos.has(a.url) ? (
-                    <Check className="h-5 w-5 text-primary" />
-                  ) : carregando === a.url ? (
-                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                  ) : (
-                    <button disabled={!!carregando} onClick={() => importarVarios([a])} className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-bold disabled:opacity-50">
-                      Importar
-                    </button>
-                  )}
-                </li>
-              ))}
+            <ul className="divide-y border-y">
+              {artigos.map((a) => {
+                const estado = status[a.url] ?? "aguardando";
+                return (
+                  <li key={a.url} className="py-3">
+                    <div className="flex items-start gap-3">
+                      <input type="checkbox" aria-label={`Selecionar ${a.titulo}`} disabled={["existente", "concluido", "importando"].includes(estado) || carregando} checked={estado === "concluido" || marcados.has(a.url)} onChange={() => alternarMarcado(a.url)} className="mt-0.5 h-5 w-5 shrink-0 accent-primary" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold leading-snug">{a.titulo}</p>
+                        <p className={`mt-1 text-xs ${estado === "erro" ? "text-destructive" : "text-muted-foreground"}`}>
+                          {estado === "existente" ? "Já importado" : estado === "concluido" ? "Concluído" : estado === "importando" ? "Importando…" : estado === "erro" ? erros[a.url] : "Aguardando"}
+                        </p>
+                      </div>
+                      {estado === "importando" && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+                      {(estado === "concluido" || estado === "existente") && <Check className="h-5 w-5 text-primary" />}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
-            {erro && <p className="mt-3 text-sm text-destructive">{erro}</p>}
-            <button
-              disabled={!!carregando || !artigos.some((a) => marcados.has(a.url) && !feitos.has(a.url))}
-              onClick={() => importarVarios(artigos.filter((a) => marcados.has(a.url)))}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 font-bold text-primary-foreground disabled:opacity-50"
-            >
-              {carregando && <Loader2 className="h-5 w-5 animate-spin" />}
-              {carregando ? "Importando..." : `Importar selecionados (${artigos.filter((a) => marcados.has(a.url) && !feitos.has(a.url)).length})`}{cron}
-            </button>
+            <div className="mt-4 flex flex-col gap-2">
+              {falhos.length > 0 && <Button variant="outline" disabled={carregando} onClick={() => importarVarios(falhos)}><RefreshCw /> Tentar falhas novamente</Button>}
+              <Button disabled={carregando || pendentes.length === 0} onClick={() => importarVarios(pendentes)}>
+                {carregando && <Loader2 className="animate-spin" />}{carregando ? "Importando" : `Importar selecionados (${pendentes.length})`} {cron}
+              </Button>
+              {!carregando && ultimoTipo && <p className="text-center text-xs text-muted-foreground">Importação concluída. Você pode fechar ou importar os itens restantes.</p>}
+            </div>
           </>
         ) : (
           <>
-            <label className="mb-2 block text-sm text-muted-foreground">Link da revista ou da matéria</label>
-            <div className="flex items-center gap-2 rounded-xl border bg-background px-3">
+            <label htmlFor="import-url" className="mb-2 block text-sm text-muted-foreground">Link da revista ou da matéria</label>
+            <div className="flex items-center gap-2 border bg-background px-3">
               <Link2 className="h-4 w-4 text-muted-foreground" />
-              <input
-                autoFocus
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://www.jw.org/bzs/..."
-                className="w-full bg-transparent py-3 outline-none"
-                inputMode="url"
-              />
+              <input id="import-url" autoFocus value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://www.jw.org/bzs/..." className="w-full bg-transparent py-3 outline-none" inputMode="url" />
             </div>
-            {erro && <p className="mt-3 text-sm text-destructive">{erro}</p>}
-            {avisos.map((a) => <p key={a} className="mt-3 rounded-lg bg-accent p-2 text-sm text-accent-foreground">{a}</p>)}
-            <button
-              disabled={!!carregando || !url}
-              onClick={buscar}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 font-bold text-primary-foreground disabled:opacity-50"
-            >
-              {carregando && <Loader2 className="h-5 w-5 animate-spin" />}
-              {carregando ? "Abrindo..." : "Continuar"}{cron}
-            </button>
+            {erro && <p role="alert" className="mt-3 text-sm text-destructive">{erro}</p>}
+            {avisos.map((aviso) => <p key={aviso} className="mt-3 border-l-2 border-primary bg-selection p-2 text-sm">{aviso}</p>)}
+            <Button disabled={carregando || !url} onClick={buscar} className="mt-5 w-full">
+              {carregando && <Loader2 className="animate-spin" />}{carregando ? "Abrindo" : "Continuar"} {cron}
+            </Button>
           </>
         )}
       </div>
