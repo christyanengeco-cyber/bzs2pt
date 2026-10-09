@@ -66,16 +66,22 @@ function findMp4(obj: unknown, out: string[] = []): string[] {
 interface Marker {
   label?: string;
   startTime: number;
+  docId?: string;
 }
 function findMarkers(obj: unknown, out: Marker[] = []): Marker[] {
   if (Array.isArray(obj)) obj.forEach((o) => findMarkers(o, out));
   else if (obj && typeof obj === "object") {
     const o = obj as any; // eslint-disable-line @typescript-eslint/no-explicit-any
     if (Array.isArray(o.markers)) {
+      const docId = o.documentId != null ? String(o.documentId) : undefined;
       for (const m of o.markers as any[]) {
         const st = m.startTime ?? m.start ?? m.time;
         if (st != null)
-          out.push({ label: String(m.label ?? m.mepsParagraphId ?? ""), startTime: typeof st === "number" ? st : parseTempo(String(st)) });
+          out.push({
+            label: m.mepsParagraphId != null ? String(m.mepsParagraphId) : String(m.label ?? ""),
+            startTime: typeof st === "number" ? st : parseTempo(String(st)),
+            docId,
+          });
       }
     } else Object.values(o).forEach((v) => findMarkers(v, out));
   }
@@ -130,7 +136,9 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
     try { jsonBlobs.push(JSON.parse(s.textContent || "")); } catch { /* ignore */ }
   });
   const jsonUrls = Array.from(doc.querySelectorAll("[data-jsonurl]")).map((e) => abs(e.getAttribute("data-jsonurl")!));
-  for (const ju of jsonUrls.slice(0, 3)) {
+  const docId = jsonUrls.map((u) => u.match(/docid=(\d+)/)?.[1]).find(Boolean);
+  const ordenadas = [...jsonUrls.filter((u) => /track=/.test(u) && /mp4/i.test(u)), ...jsonUrls];
+  for (const ju of Array.from(new Set(ordenadas)).slice(0, 3)) {
     try { jsonBlobs.push(JSON.parse(await fetchProxy(ju))); } catch { /* ignore */ }
   }
   for (const j of jsonBlobs) {
@@ -139,6 +147,11 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
       video_url = mp4s.find((m) => /720|480/.test(m)) || mp4s[0] || "";
     }
     markers.push(...findMarkers(j));
+  }
+  if (docId && markers.some((m) => m.docId === docId)) markers = markers.filter((m) => m.docId === docId);
+  {
+    const vistos = new Set<string>();
+    markers = markers.filter((m) => { const k = m.label + "@" + m.startTime; if (vistos.has(k)) return false; vistos.add(k); return true; });
   }
   if (!video_url) {
     const m = html.match(/https?:[^"'\s<>]+?\.mp4/i);
