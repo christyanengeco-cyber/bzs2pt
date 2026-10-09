@@ -127,13 +127,17 @@ function Leitor() {
             src={pub.video_url}
             playsInline
             preload="metadata"
-            className="min-h-0 w-full flex-1 object-contain"
+            className="min-h-0 w-full flex-1 touch-none object-contain"
             onPlay={() => setTocando(true)}
             onPause={() => setTocando(false)}
             onTimeUpdate={(e) => setTempo(e.currentTarget.currentTime)}
-            onLoadedMetadata={(e) => setDur(e.currentTarget.duration)}
-            onClick={(e) => (e.currentTarget.paused ? e.currentTarget.play() : e.currentTarget.pause())}
+            onLoadedMetadata={(e) => { setDur(e.currentTarget.duration); e.currentTarget.playbackRate = vel; }}
+            onClick={alternar}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
           />
+        ) : (
         ) : (
           <SemVideo onSave={async (u) => { const np = { ...pub, video_url: u }; await atualizarPublicacao(np); setPub(np); }} />
         )}
