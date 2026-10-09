@@ -39,11 +39,13 @@
   --color-hl-ink: var(--hl-ink);
   --color-selection: var(--selection);
   --color-overlay: var(--overlay);
+  --color-section: var(--section);
+  --color-reference: var(--reference);
 }
 
 :root {
   --radius: 0.5rem;
-  --background: oklch(0.98 0.003 250);
+  --background: oklch(0.97 0 0);
   --foreground: oklch(0.2 0.006 250);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.2 0.006 250);
@@ -62,7 +64,7 @@
   --border: oklch(0.88 0.004 250);
   --input: oklch(0.88 0.004 250);
   --ring: oklch(0.55 0.15 246);
-  --player: oklch(0.12 0.003 285);
+  --player: oklch(0 0 0);
   --selection: oklch(0.93 0.035 246);
   --overlay: oklch(0.1 0.003 285 / 72%);
   --hl-yellow: #ffff00;
@@ -73,25 +75,25 @@
 }
 
 .dark {
-  --background: oklch(0.235 0.004 285);
+  --background: oklch(0 0 0);
   --foreground: oklch(0.92 0.003 285);
-  --card: oklch(0.275 0.004 285);
+  --card: oklch(0.255 0 0);
   --card-foreground: oklch(0.92 0.003 285);
-  --popover: oklch(0.29 0.004 285);
+  --popover: oklch(0.285 0 0);
   --popover-foreground: oklch(0.92 0.003 285);
   --primary: oklch(0.7 0.13 245);
   --primary-foreground: oklch(0.15 0.01 245);
-  --secondary: oklch(0.31 0.004 285);
+  --secondary: oklch(0.32 0 0);
   --secondary-foreground: oklch(0.91 0.003 285);
-  --muted: oklch(0.29 0.004 285);
+  --muted: oklch(0.285 0 0);
   --muted-foreground: oklch(0.67 0.006 285);
   --accent: oklch(0.34 0.025 245);
   --accent-foreground: oklch(0.93 0.003 285);
   --destructive: oklch(0.68 0.19 22);
-  --border: oklch(0.38 0.004 285);
-  --input: oklch(0.4 0.004 285);
+  --border: oklch(0.36 0 0);
+  --input: oklch(0.44 0 0);
   --ring: oklch(0.7 0.13 245);
-  --player: oklch(0.12 0.003 285);
+  --player: oklch(0 0 0);
   --selection: oklch(0.33 0.04 245);
   --overlay: oklch(0.08 0.003 285 / 78%);
   --hl-yellow: #8a7a1e;
@@ -100,6 +102,60 @@
   --hl-pink: #7a3b66;
   --hl-ink: oklch(0.96 0.003 285);
 }
+
+:root { --section: #347c80; --reference: #286da8; --user-accent: #76528f; --swatch-ink: #151515; }
+.dark { --section: #79b6b7; --reference: #86bce5; --user-accent: #a78bca; }
+:root[data-accent="lilas"] { --user-accent: #76528f; }
+.dark[data-accent="lilas"] { --user-accent: #a78bca; }
+[data-swatch="lilas"] { --swatch-color: #a78bca; }
+:root[data-accent="roxo"] { --user-accent: #784599; }
+.dark[data-accent="roxo"] { --user-accent: #b18bd4; }
+[data-swatch="roxo"] { --swatch-color: #b18bd4; }
+:root[data-accent="violeta"] { --user-accent: #7253b0; }
+.dark[data-accent="violeta"] { --user-accent: #b29bea; }
+[data-swatch="violeta"] { --swatch-color: #b29bea; }
+:root[data-accent="azul"] { --user-accent: #376db5; }
+.dark[data-accent="azul"] { --user-accent: #80a9e0; }
+[data-swatch="azul"] { --swatch-color: #80a9e0; }
+:root[data-accent="celeste"] { --user-accent: #246d9b; }
+.dark[data-accent="celeste"] { --user-accent: #73b7e2; }
+[data-swatch="celeste"] { --swatch-color: #73b7e2; }
+:root[data-accent="ciano"] { --user-accent: #19737d; }
+.dark[data-accent="ciano"] { --user-accent: #64c6cf; }
+[data-swatch="ciano"] { --swatch-color: #64c6cf; }
+:root[data-accent="petroleo"] { --user-accent: #28746f; }
+.dark[data-accent="petroleo"] { --user-accent: #70b9b4; }
+[data-swatch="petroleo"] { --swatch-color: #70b9b4; }
+:root[data-accent="verde"] { --user-accent: #34773c; }
+.dark[data-accent="verde"] { --user-accent: #80bd87; }
+[data-swatch="verde"] { --swatch-color: #80bd87; }
+:root[data-accent="menta"] { --user-accent: #2a7c59; }
+.dark[data-accent="menta"] { --user-accent: #77c7a2; }
+[data-swatch="menta"] { --swatch-color: #77c7a2; }
+:root[data-accent="lima"] { --user-accent: #617b24; }
+.dark[data-accent="lima"] { --user-accent: #b2c976; }
+[data-swatch="lima"] { --swatch-color: #b2c976; }
+:root[data-accent="amarelo"] { --user-accent: #806c17; }
+.dark[data-accent="amarelo"] { --user-accent: #e1cf72; }
+[data-swatch="amarelo"] { --swatch-color: #e1cf72; }
+:root[data-accent="ambar"] { --user-accent: #8b641e; }
+.dark[data-accent="ambar"] { --user-accent: #e2bc6f; }
+[data-swatch="ambar"] { --swatch-color: #e2bc6f; }
+:root[data-accent="laranja"] { --user-accent: #995b21; }
+.dark[data-accent="laranja"] { --user-accent: #dfaa73; }
+[data-swatch="laranja"] { --swatch-color: #dfaa73; }
+:root[data-accent="coral"] { --user-accent: #a44a3d; }
+.dark[data-accent="coral"] { --user-accent: #e39589; }
+[data-swatch="coral"] { --swatch-color: #e39589; }
+:root[data-accent="rosa"] { --user-accent: #a14e6f; }
+.dark[data-accent="rosa"] { --user-accent: #df9fb9; }
+[data-swatch="rosa"] { --swatch-color: #df9fb9; }
+:root[data-accent="magenta"] { --user-accent: #92467f; }
+.dark[data-accent="magenta"] { --user-accent: #ce92bf; }
+[data-swatch="magenta"] { --swatch-color: #ce92bf; }
+:root, .dark { --primary: var(--user-accent); --primary-foreground: var(--card); --ring: var(--user-accent); --selection: color-mix(in srgb, var(--user-accent) 18%, var(--background)); --accent: color-mix(in srgb, var(--user-accent) 12%, var(--card)); --accent-foreground: var(--foreground); }
+.accent-swatch, .accent-swatch:hover { background-color: var(--swatch-color); color: var(--swatch-ink); }
+.accent-swatch[aria-pressed="true"] { border-color: var(--foreground); }
 
 @layer base {
   * { border-color: var(--color-border); }

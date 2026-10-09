@@ -12,7 +12,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { aplicarTema, type Tema } from "../components/ThemeToggle";
+import { aplicarCor, aplicarTema, corValida, type Tema } from "../lib/appearance";
 
 function NotFoundComponent() {
   return (
@@ -59,7 +59,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-      { name: "theme-color", content: "#1c1c1e" },
+      { name: "theme-color", content: "#000000" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { title: "Estudo em Libras" },
       { name: "description", content: "Estudo pessoal bilíngue Libras / Português." },
@@ -103,6 +103,7 @@ function RootComponent() {
     const salvo = localStorage.getItem("tema");
     const tema: Tema = salvo === "claro" || salvo === "escuro" ? salvo : "sistema";
     aplicarTema(tema);
+    aplicarCor(corValida(localStorage.getItem("cor-interface")));
     const media = matchMedia("(prefers-color-scheme: dark)");
     const atualizar = () => { if ((localStorage.getItem("tema") ?? "sistema") === "sistema") aplicarTema("sistema"); };
     media.addEventListener("change", atualizar);

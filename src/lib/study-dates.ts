@@ -52,6 +52,15 @@ export function ordenarPorSemana(a: Publicacao, b: Publicacao) {
   return b.criado_em - a.criado_em;
 }
 
+export function ordenarSemanasCronologicamente(a: Publicacao, b: Publicacao) {
+  const ai = intervaloDaPublicacao(a)?.inicio;
+  const bi = intervaloDaPublicacao(b)?.inicio;
+  if (ai && bi) return ai.localeCompare(bi) || a.criado_em - b.criado_em;
+  if (ai) return -1;
+  if (bi) return 1;
+  return a.criado_em - b.criado_em;
+}
+
 export function escolherSemanaInicial(publicacoes: Publicacao[], hoje = hojeIso()) {
   const datadas = publicacoes
     .map((publicacao) => ({ publicacao, intervalo: intervaloDaPublicacao(publicacao) }))
