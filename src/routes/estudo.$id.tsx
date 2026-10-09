@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Clock, MessageCircle, Pause, Play, Eraser, Video } from "lucide-react";
+import { ArrowLeft, Clock, MessageCircle, Pause, Play, Eraser, Video, EyeOff, Eye, Trash2, X } from "lucide-react";
+import { LIXO } from "@/lib/parser";
 import {
   CORES, atualizarParagrafo, atualizarPublicacao, excluirAnotacao, getPublicacao, listarAnotacoes,
   listarParagrafos, salvarAnotacao, uid, type Anotacao, type Paragrafo, type Publicacao,
@@ -34,6 +35,18 @@ function Leitor() {
   const [vel, setVel] = useState(1);
   const [ativo, setAtivo] = useState<string | null>(null);
   const [sel, setSel] = useState<{ pid: string; inicio: number; fim: number; trecho: string } | null>(null);
+  const [editMarca, setEditMarca] = useState<Anotacao | null>(null);
+  const [modoTempo, setModoTempo] = useState(false);
+  const [painelOcultos, setPainelOcultos] = useState(false);
+  const trava = useRef<number | null>(null);
+  const estaOculto = (p: Paragrafo) => p.oculto ?? LIXO.test(p.texto_portugues);
+  const visiveis = paras.filter((p) => !estaOculto(p));
+  const ocultos = paras.filter(estaOculto);
+  async function definirOculto(p: Paragrafo, oculto: boolean) {
+    const np = { ...p, oculto };
+    await atualizarParagrafo(np);
+    setParas((ps) => ps.map((x) => (x.id === p.id ? np : x)));
+  }
 
   useEffect(() => {
     getPublicacao(id).then((p) => setPub(p ?? null));
@@ -84,8 +97,16 @@ function Leitor() {
 
   // paragrafo atual conforme o vídeo
   useEffect(() => {
-    const cur = [...paras].reverse().find((p) => p.timestamp_inicio > 0 && p.timestamp_inicio <= tempo + 0.2);
-    if (cur && cur.id !== ativo && tocando) setAtivo(cur.id);
+    if (!tocando) return;
+    let cur: Paragrafo | undefined;
+    for (const p of visiveis)
+      if (p.timestamp_inicio > 0 && p.timestamp_inicio <= tempo + 0.2 && (!cur || p.timestamp_inicio >= cur.timestamp_inicio)) cur = p;
+    if (!cur) return;
+    if (trava.current != null) {
+      if (Math.abs(cur.timestamp_inicio - trava.current) < 0.05) return;
+      trava.current = null;
+    }
+    if (cur.id !== ativo) setAtivo(cur.id);
   }, [tempo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function onSelect(pid: string, el: HTMLElement) {
@@ -107,6 +128,8 @@ function Leitor() {
   }
 
   async function sincronizar(p: Paragrafo) {
+    const novo = video.current?.currentTime ?? 0;
+    if (!confirm(`Mudar o início deste trecho de ${fmt(p.timestamp_inicio)} para ${fmt(novo)}?`)) return;
     const np = { ...p, timestamp_inicio: Math.round((video.current?.currentTime ?? 0) * 10) / 10 };
     await atualizarParagrafo(np);
     setParas((ps) => ps.map((x) => (x.id === p.id ? np : x)));
@@ -121,6 +144,18 @@ function Leitor() {
         <Link to="/" aria-label="Voltar" className="absolute left-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-background/70 backdrop-blur">
           <ArrowLeft className="h-5 w-5" />
         </Link>
+        <div className="absolute right-3 top-3 z-10 flex gap-2">
+          {ocultos.length > 0 && (
+            <button aria-label="Itens ocultos" onClick={() => setPainelOcultos(true)} className="flex h-9 items-center gap-1 rounded-full bg-background/70 px-3 text-xs font-bold backdrop-blur">
+              <EyeOff className="h-4 w-4" /> {ocultos.length}
+            </button>
+          )}
+          {pub.video_url && (
+            <button aria-label="Modo ajustar tempos" aria-pressed={modoTempo} onClick={() => setModoTempo((m) => !m)} className={`grid h-9 w-9 place-items-center rounded-full backdrop-blur ${modoTempo ? "bg-primary text-primary-foreground" : "bg-background/70"}`}>
+              <Clock className="h-4 w-4" />
+            </button>
+          )}
+        </div>
         {pub.video_url ? (
           <video
             ref={video}
@@ -167,14 +202,22 @@ function Leitor() {
         <div className="mx-auto max-w-2xl px-4 pb-24 pt-5">
           <p className="text-xs font-bold uppercase tracking-widest text-primary">{pub.semana}</p>
           <h1 className="mb-5 text-2xl font-bold leading-tight">{pub.titulo}</h1>
-          {paras.map((p) => (
+          {modoTempo && (
+            <p className="mb-4 rounded-xl bg-accent p-3 text-sm text-accent-foreground">
+              Modo ajustar tempos ligado: o relógio em cada trecho grava o tempo atual do vídeo. Toque no relógio do topo para sair.
+            </p>
+          )}
+          {visiveis.map((p) => (
             <ParagrafoView
               key={p.id}
               p={p}
               ativo={ativo === p.id}
               notas={notas.filter((n) => n.paragrafo_id === p.id)}
               temVideo={!!pub.video_url}
-              onTap={() => { setAtivo(p.id); if (pub.video_url) seekTo(p.timestamp_inicio); }}
+              modoTempo={modoTempo}
+              onTap={() => { setAtivo(p.id); if (pub.video_url) { trava.current = p.timestamp_inicio; seekTo(p.timestamp_inicio); } }}
+              onOcultar={() => definirOculto(p, true)}
+              onMarca={(m) => { setSel(null); setEditMarca(m); }}
               onSelect={(el) => onSelect(p.id, el)}
               onSync={() => sincronizar(p)}
               onNotas={setNotas}
@@ -182,6 +225,46 @@ function Leitor() {
           ))}
         </div>
       </div>
+
+      {editMarca && (
+        <div className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border bg-popover p-2 shadow-2xl">
+          {CORES.map((c) => (
+            <button
+              key={c}
+              aria-label={`Trocar para ${c}`}
+              onClick={async () => { const na = { ...editMarca, cor_destaque: c }; await salvarAnotacao(na); setNotas((ns) => ns.map((n) => (n.id === na.id ? na : n))); setEditMarca(null); }}
+              className={`h-9 w-9 rounded-full border-2 ${editMarca.cor_destaque === c ? "border-foreground" : "border-background"}`}
+              style={{ background: c }}
+            />
+          ))}
+          <button aria-label="Apagar marcação" onClick={async () => { await excluirAnotacao(editMarca.id); setNotas((ns) => ns.filter((n) => n.id !== editMarca.id)); setEditMarca(null); }} className="grid h-9 w-9 place-items-center rounded-full bg-destructive text-destructive-foreground">
+            <Trash2 className="h-4 w-4" />
+          </button>
+          <button aria-label="Fechar" onClick={() => setEditMarca(null)} className="grid h-9 w-9 place-items-center text-muted-foreground"><X className="h-4 w-4" /></button>
+        </div>
+      )}
+
+      {painelOcultos && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/70 backdrop-blur-sm sm:items-center" onClick={() => setPainelOcultos(false)}>
+          <div className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border bg-card p-5 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-bold">Itens ocultos</h2>
+              <button onClick={() => setPainelOcultos(false)} aria-label="Fechar"><X className="h-5 w-5" /></button>
+            </div>
+            {ocultos.length === 0 && <p className="text-sm text-muted-foreground">Nenhum item oculto.</p>}
+            <ul className="space-y-2">
+              {ocultos.map((p) => (
+                <li key={p.id} className="flex items-start gap-2 rounded-xl border bg-background p-3">
+                  <p className="line-clamp-3 min-w-0 flex-1 text-sm">{p.texto_portugues}</p>
+                  <button onClick={() => definirOculto(p, false)} className="flex shrink-0 items-center gap-1 rounded-lg bg-secondary px-2 py-1.5 text-xs font-bold">
+                    <Eye className="h-3.5 w-3.5" /> Mostrar
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       {sel && (
         <div className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border bg-popover p-2 shadow-2xl">
@@ -195,7 +278,7 @@ function Leitor() {
   );
 }
 
-function renderMarcado(texto: string, marcas: Anotacao[]) {
+function renderMarcado(texto: string, marcas: Anotacao[], onMarca: (m: Anotacao) => void) {
   const ms = marcas.filter((m) => m.tipo === "destaque" && m.inicio != null).sort((a, b) => a.inicio! - b.inicio!);
   const out: React.ReactNode[] = [];
   let pos = 0;
@@ -203,16 +286,16 @@ function renderMarcado(texto: string, marcas: Anotacao[]) {
     const ini = Math.max(m.inicio!, pos), fim = Math.min(m.fim!, texto.length);
     if (fim <= ini) continue;
     if (ini > pos) out.push(texto.slice(pos, ini));
-    out.push(<mark key={m.id} style={{ background: m.cor_destaque }}>{texto.slice(ini, fim)}</mark>);
+    out.push(<mark key={m.id} style={{ background: m.cor_destaque }} className="cursor-pointer rounded-sm" onClick={(e) => { if (window.getSelection()?.toString()) return; e.stopPropagation(); onMarca(m); }}>{texto.slice(ini, fim)}</mark>);
     pos = fim;
   }
   out.push(texto.slice(pos));
   return out;
 }
 
-function ParagrafoView({ p, ativo, notas, temVideo, onTap, onSelect, onSync, onNotas }: {
-  p: Paragrafo; ativo: boolean; notas: Anotacao[]; temVideo: boolean;
-  onTap: () => void; onSelect: (el: HTMLElement) => void; onSync: () => void;
+function ParagrafoView({ p, ativo, notas, temVideo, modoTempo, onTap, onOcultar, onMarca, onSelect, onSync, onNotas }: {
+  p: Paragrafo; ativo: boolean; notas: Anotacao[]; temVideo: boolean; modoTempo: boolean;
+  onTap: () => void; onOcultar: () => void; onMarca: (m: Anotacao) => void; onSelect: (el: HTMLElement) => void; onSync: () => void;
   onNotas: React.Dispatch<React.SetStateAction<Anotacao[]>>;
 }) {
   const ref = useRef<HTMLParagraphElement>(null);
@@ -245,7 +328,7 @@ function ParagrafoView({ p, ativo, notas, temVideo, onTap, onSelect, onSync, onN
         onTouchEnd={() => setTimeout(() => ref.current && onSelect(ref.current), 50)}
         className={`cursor-pointer select-text leading-relaxed ${p.pergunta ? "text-base font-bold italic text-primary" : "text-[1.1rem]"}`}
       >
-        {renderMarcado(p.texto_portugues, notas)}
+        {renderMarcado(p.texto_portugues, notas, onMarca)}
       </p>
       <div className="mt-1 flex items-center gap-1 text-muted-foreground">
         {temVideo && (
@@ -254,8 +337,8 @@ function ParagrafoView({ p, ativo, notas, temVideo, onTap, onSelect, onSync, onN
           </span>
         )}
         {!temVideo && <span className="mr-auto" />}
-        {temVideo && (
-          <button onClick={onSync} title="Usar o tempo atual do vídeo" aria-label="Sincronizar com o tempo atual" className="rounded-lg p-1.5 hover:bg-secondary">
+        {temVideo && modoTempo && (
+          <button onClick={onSync} title="Usar o tempo atual do vídeo" aria-label="Sincronizar com o tempo atual" className="rounded-lg bg-primary p-1.5 text-primary-foreground">
             <Clock className="h-4 w-4" />
           </button>
         )}
@@ -272,6 +355,9 @@ function ParagrafoView({ p, ativo, notas, temVideo, onTap, onSelect, onSync, onN
             <Eraser className="h-4 w-4" />
           </button>
         )}
+        <button aria-label="Ocultar trecho" title="Ocultar" onClick={() => { if (confirm("Ocultar este trecho? Você pode mostrar de novo em Itens ocultos.")) onOcultar(); }} className="rounded-lg p-1.5 hover:bg-secondary">
+          <EyeOff className="h-4 w-4" />
+        </button>
         <button aria-label="Anotação" onClick={() => setAberto((a) => !a)} className={`rounded-lg p-1.5 hover:bg-secondary ${texto ? "text-primary" : ""}`}>
           <MessageCircle className="h-4 w-4" fill={texto ? "currentColor" : "none"} />
         </button>
