@@ -25,6 +25,8 @@ async function fetchProxy(url: string): Promise<string> {
   throw new Error("Não foi possível baixar a página. " + (lastErr instanceof Error ? lastErr.message : String(lastErr)));
 }
 
+export const LIXO = /^(Desculpe-nos\. O tocador de mídia não carregou\.?|Baixar vídeo|Baixar|Compartilhar|Reproduzir)$/i;
+
 export interface ArtigoRevista { titulo: string; url: string }
 
 /** Se o link for o sumário de uma revista, devolve a lista de artigos; senão, lista vazia. */
@@ -197,6 +199,7 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
       numero_ordem: i,
       texto_portugues: t.texto,
       pergunta: t.pergunta,
+      oculto: LIXO.test(t.texto) || undefined,
       timestamp_inicio: ts,
     };
   });
