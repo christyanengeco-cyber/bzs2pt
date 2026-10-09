@@ -18,6 +18,7 @@ export interface Paragrafo {
   timestamp_inicio: number;
   pergunta?: boolean;
   rotulo?: string;
+  oculto?: boolean;
 }
 export const CORES = ["#FFFF00", "#86EFAC", "#93C5FD", "#F472B6"] as const;
 export interface Anotacao {
