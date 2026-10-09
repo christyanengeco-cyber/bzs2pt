@@ -107,6 +107,20 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: (t: Tip
   const [artigos, setArtigos] = useState<ArtigoRevista[] | null>(null);
   const [feitos, setFeitos] = useState<Set<string>>(new Set());
   const [ultimoTipo, setUltimoTipo] = useState<TipoPub | null>(null);
+  const [marcados, setMarcados] = useState<Set<string>>(new Set());
+  const [inicio, setInicio] = useState<number | null>(null);
+  const [agora, setAgora] = useState(0);
+  useEffect(() => {
+    if (!carregando) { setInicio(null); return; }
+    const t0 = inicio ?? Date.now();
+    if (inicio == null) setInicio(t0);
+    setAgora(Date.now());
+    const iv = setInterval(() => setAgora(Date.now()), 250);
+    return () => clearInterval(iv);
+  }, [!!carregando]); // eslint-disable-line react-hooks/exhaustive-deps
+  const decorrido = inicio ? Math.max(0, Math.floor((agora - inicio) / 1000)) : 0;
+  const cron = carregando ? <span className="ml-1 text-xs font-normal tabular-nums opacity-80">{Math.floor(decorrido / 60)}:{String(decorrido % 60).padStart(2, "0")}</span> : null;
+  const alternarMarcado = (u: string) => setMarcados((s) => { const n = new Set(s); if (n.has(u)) n.delete(u); else n.add(u); return n; });
 
   async function importarUm(u: string) {
     const r = await importarUrl(u);
@@ -121,7 +135,7 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: (t: Tip
     setCarregando("Abrindo...");
     try {
       const lista = await listarArtigos(url.trim());
-      if (lista.length) { setArtigos(lista); return; }
+      if (lista.length) { setArtigos(lista); setMarcados(new Set(lista.map((a) => a.url))); return; }
       const r = await importarUm(url.trim());
       if (r.avisos.length) { setAvisos(r.avisos); setTimeout(() => onDone(r.publicacao.tipo), 3500); }
       else onDone(r.publicacao.tipo);
@@ -161,7 +175,15 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: (t: Tip
             <ul className="space-y-2">
               {artigos.map((a) => (
                 <li key={a.url} className="flex items-center gap-2 rounded-xl border bg-background p-3">
-                  <p className="min-w-0 flex-1 text-sm font-semibold leading-snug">{a.titulo}</p>
+                  <input
+                    type="checkbox"
+                    aria-label={`Selecionar ${a.titulo}`}
+                    disabled={feitos.has(a.url) || !!carregando}
+                    checked={feitos.has(a.url) || marcados.has(a.url)}
+                    onChange={() => alternarMarcado(a.url)}
+                    className="h-5 w-5 shrink-0 accent-primary"
+                  />
+                  <p onClick={() => !carregando && !feitos.has(a.url) && alternarMarcado(a.url) className="min-w-0 flex-1 text-sm font-semibold leading-snug">{a.titulo}</p>
                   {feitos.has(a.url) ? (
                     <Check className="h-5 w-5 text-primary" />
                   ) : carregando === a.url ? (
@@ -176,12 +198,12 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: (t: Tip
             </ul>
             {erro && <p className="mt-3 text-sm text-destructive">{erro}</p>}
             <button
-              disabled={!!carregando || feitos.size === artigos.length}
-              onClick={() => importarVarios(artigos)}
+              disabled={!!carregando || !artigos.some((a) => marcados.has(a.url) && !feitos.has(a.url))}
+              onClick={() => importarVarios(artigos.filter((a) => marcados.has(a.url)))}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 font-bold text-primary-foreground disabled:opacity-50"
             >
               {carregando && <Loader2 className="h-5 w-5 animate-spin" />}
-              {carregando ? "Importando..." : "Importar todos"}
+              {carregando ? "Importando..." : `Importar selecionados (${artigos.filter((a) => marcados.has(a.url) && !feitos.has(a.url)).length})`}{cron}
             </button>
           </>
         ) : (
@@ -206,7 +228,7 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: (t: Tip
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 font-bold text-primary-foreground disabled:opacity-50"
             >
               {carregando && <Loader2 className="h-5 w-5 animate-spin" />}
-              {carregando ? "Abrindo..." : "Continuar"}
+              {carregando ? "Abrindo..." : "Continuar"}{cron}
             </button>
           </>
         )}
