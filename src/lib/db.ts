@@ -6,6 +6,8 @@ export interface Publicacao {
   tipo: TipoPub;
   titulo: string;
   semana: string;
+  semana_inicio?: string;
+  semana_fim?: string;
   url_origem: string;
   video_url: string;
   criado_em: number;
@@ -36,11 +38,13 @@ export interface Anotacao {
 let dbp: Promise<IDBPDatabase> | null = null;
 function db() {
   if (!dbp)
-    dbp = openDB("estudo-libras", 1, {
-      upgrade(d) {
-        d.createObjectStore("publicacoes", { keyPath: "id" });
-        d.createObjectStore("paragrafos", { keyPath: "id" }).createIndex("pub", "publicacao_id");
-        d.createObjectStore("anotacoes", { keyPath: "id" }).createIndex("pub", "publicacao_id");
+    dbp = openDB("estudo-libras", 2, {
+      upgrade(d, oldVersion) {
+        if (oldVersion < 1) {
+          d.createObjectStore("publicacoes", { keyPath: "id" });
+          d.createObjectStore("paragrafos", { keyPath: "id" }).createIndex("pub", "publicacao_id");
+          d.createObjectStore("anotacoes", { keyPath: "id" }).createIndex("pub", "publicacao_id");
+        }
       },
     });
   return dbp;
@@ -88,4 +92,33 @@ export async function salvarAnotacao(a: Anotacao) {
 }
 export async function excluirAnotacao(id: string) {
   await (await db()).delete("anotacoes", id);
+}
+
+export async function listarTodosDados() {
+  const d = await db();
+  const [publicacoes, paragrafos, anotacoes] = await Promise.all([
+    d.getAll("publicacoes") as Promise<Publicacao[]>,
+    d.getAll("paragrafos") as Promise<Paragrafo[]>,
+    d.getAll("anotacoes") as Promise<Anotacao[]>,
+  ]);
+  return { publicacoes, paragrafos, anotacoes };
+}
+
+export async function restaurarDados(
+  dados: { publicacoes: Publicacao[]; paragrafos: Paragrafo[]; anotacoes: Anotacao[] },
+  substituir: boolean,
+) {
+  const d = await db();
+  const tx = d.transaction(["publicacoes", "paragrafos", "anotacoes"], "readwrite");
+  if (substituir) {
+    await Promise.all([
+      tx.objectStore("publicacoes").clear(),
+      tx.objectStore("paragrafos").clear(),
+      tx.objectStore("anotacoes").clear(),
+    ]);
+  }
+  for (const publicacao of dados.publicacoes) await tx.objectStore("publicacoes").put(publicacao);
+  for (const paragrafo of dados.paragrafos) await tx.objectStore("paragrafos").put(paragrafo);
+  for (const anotacao of dados.anotacoes) await tx.objectStore("anotacoes").put(anotacao);
+  await tx.done;
 }
