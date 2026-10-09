@@ -2,6 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Clock, MessageCircle, Pause, Play, Eraser, Video, EyeOff, Eye, Trash2, X } from "lucide-react";
 import { LIXO } from "@/lib/parser";
+import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   CORES, atualizarParagrafo, atualizarPublicacao, excluirAnotacao, getPublicacao, listarAnotacoes,
   listarParagrafos, salvarAnotacao, uid, type Anotacao, type Paragrafo, type Publicacao,
@@ -153,6 +155,7 @@ function Leitor() {
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="absolute right-3 top-3 z-10 flex gap-2">
+          <span className="rounded-md bg-card"><ThemeToggle /></span>
           {ocultos.length > 0 && (
             <button aria-label="Itens ocultos" onClick={() => setPainelOcultos(true)} className="flex h-9 items-center gap-1 rounded-full bg-background/70 px-3 text-xs font-bold backdrop-blur">
               <EyeOff className="h-4 w-4" /> {ocultos.length}
@@ -215,7 +218,7 @@ function Leitor() {
       {/* TEXTO 65% */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-2xl px-4 pb-24 pt-5">
-          <p className="text-xs font-bold uppercase tracking-widest text-primary">{pub.semana}</p>
+          <p className="text-xs font-bold uppercase text-section">{pub.semana}</p>
           <h1 className="mb-5 text-2xl font-bold leading-tight">{pub.titulo}</h1>
           {modoTempo && (
             <p className="mb-4 rounded-xl bg-accent p-3 text-sm text-accent-foreground">
@@ -348,7 +351,7 @@ function ParagrafoView({ p, ativo, acompanhando, notas, temVideo, modoTempo, onT
         onClick={() => { if (!window.getSelection()?.toString()) onTap(); }}
         onMouseUp={() => ref.current && onSelect(ref.current)}
         onTouchEnd={() => setTimeout(() => ref.current && onSelect(ref.current), 50)}
-        className={`cursor-pointer select-text leading-relaxed ${p.pergunta ? "text-base font-bold italic text-primary" : "text-[1.1rem]"}`}
+         className={`cursor-pointer select-text leading-relaxed ${p.pergunta ? "text-base font-bold text-section" : "text-[1.1rem]"}`}
       >
         {renderMarcado(p.texto_portugues, notas, onMarca)}
       </p>
@@ -377,9 +380,9 @@ function ParagrafoView({ p, ativo, acompanhando, notas, temVideo, modoTempo, onT
             <Eraser className="h-4 w-4" />
           </button>
         )}
-        <button aria-label="Ocultar trecho" title="Ocultar" onClick={() => { if (confirm("Ocultar este trecho? Você pode mostrar de novo em Itens ocultos.")) onOcultar(); }} className="rounded-lg p-1.5 hover:bg-secondary">
+        {modoTempo && <Button variant="ghost" size="icon" aria-label="Ocultar trecho" title="Ocultar" onClick={() => { if (confirm("Ocultar este trecho? Você pode mostrar de novo em Itens ocultos.")) onOcultar(); }}>
           <EyeOff className="h-4 w-4" />
-        </button>
+        </Button>}
         <button aria-label="Anotação" onClick={() => setAberto((a) => !a)} className={`rounded-lg p-1.5 hover:bg-secondary ${texto ? "text-primary" : ""}`}>
           <MessageCircle className="h-4 w-4" fill={texto ? "currentColor" : "none"} />
         </button>
@@ -391,7 +394,7 @@ function ParagrafoView({ p, ativo, acompanhando, notas, temVideo, modoTempo, onT
           onChange={(e) => escrever(e.target.value)}
           placeholder="Minha anotação… (salva automaticamente)"
           rows={3}
-          className="mt-1 w-full rounded-xl border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+          className="mt-1 w-full rounded-md border bg-transparent p-3 text-sm outline-none focus:ring-2 focus:ring-ring"
         />
       )}
     </div>
