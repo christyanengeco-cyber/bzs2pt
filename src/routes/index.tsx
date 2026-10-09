@@ -42,11 +42,15 @@ function Biblioteca() {
   const semanas = useMemo(() => {
     const grupos = new Map<string, Publicacao[]>();
     for (const p of daAba) grupos.set(chaveSemana(p), [...(grupos.get(chaveSemana(p)) ?? []), p]);
-    return Array.from(grupos, ([chave, estudos]) => ({ chave, estudos, intervalo: intervaloDaPublicacao(estudos[0]) }));
+    return Array.from(grupos, ([chave, estudos]) => {
+      const primeiro = estudos[0];
+      return { chave, estudos, intervalo: primeiro ? intervaloDaPublicacao(primeiro) : null };
+    });
   }, [daAba]);
 
   const escolhaPadrao = escolherSemanaInicial(daAba);
-  const chavePadrao = escolhaPadrao ? chaveSemana(daAba.find((p) => p.id === escolhaPadrao.id) ?? daAba[0]) : undefined;
+  const publicacaoPadrao = escolhaPadrao ? daAba.find((p) => p.id === escolhaPadrao.id) : undefined;
+  const chavePadrao = publicacaoPadrao ? chaveSemana(publicacaoPadrao) : undefined;
   const chaveSelecionada = semanas.some((s) => s.chave === selecionadas[aba]) ? selecionadas[aba] : chavePadrao;
   const semanaSelecionada = semanas.find((s) => s.chave === chaveSelecionada);
   const atual = semanaSelecionada?.intervalo

@@ -210,7 +210,8 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
 
   return {
     publicacao: {
-      id: pubId, tipo, titulo, semana, semana_inicio: intervalo?.inicio, semana_fim: intervalo?.fim,
+      id: pubId, tipo, titulo, semana,
+      ...(intervalo ? { semana_inicio: intervalo.inicio, semana_fim: intervalo.fim } : {}),
       url_origem: url, video_url, criado_em: Date.now(),
     },
     paragrafos,

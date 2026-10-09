@@ -8,7 +8,7 @@ export type Tema = "sistema" | "claro" | "escuro";
 export function aplicarTema(tema: Tema) {
   const escuro = tema === "escuro" || (tema === "sistema" && matchMedia("(prefers-color-scheme: dark)").matches);
   document.documentElement.classList.toggle("dark", escuro);
-  document.documentElement.dataset.tema = tema;
+  document.documentElement.dataset["tema"] = tema;
   localStorage.setItem("tema", tema);
 }
 

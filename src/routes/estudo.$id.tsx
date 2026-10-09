@@ -82,11 +82,16 @@ function Leitor() {
   const onTouchStart = (e: React.TouchEvent) => {
     const t = e.touches;
     if (t.length >= 2) gesto.current = { dedos: 2, y: 0, velIni: vel, moveu: false };
-    else if (!gesto.current) gesto.current = { dedos: 1, y: t[0]!.clientY, velIni: vel, moveu: false };
+    else if (!gesto.current) {
+      const toque = t[0];
+      if (toque) gesto.current = { dedos: 1, y: toque.clientY, velIni: vel, moveu: false };
+    }
   };
   const onTouchMove = (e: React.TouchEvent) => {
     const g = gesto.current; if (!g || g.dedos !== 1) return;
-    const dy = g.y - e.touches[0]!.clientY;
+    const toque = e.touches[0];
+    if (!toque) return;
+    const dy = g.y - toque.clientY;
     if (Math.abs(dy) > 15) g.moveu = true;
     if (g.moveu) mostrarHud(`${aplicarVel(g.velIni + Math.trunc(dy / 25) * 0.1).toFixed(1)}x`);
   };
@@ -290,11 +295,11 @@ function Leitor() {
 }
 
 function renderMarcado(texto: string, marcas: Anotacao[], onMarca: (m: Anotacao) => void) {
-  const ms = marcas.filter((m) => m.tipo === "destaque" && m.inicio != null).sort((a, b) => a.inicio! - b.inicio!);
+  const ms = marcas.filter((m) => m.tipo === "destaque" && m.inicio != null).sort((a, b) => (a.inicio ?? 0) - (b.inicio ?? 0));
   const out: React.ReactNode[] = [];
   let pos = 0;
   for (const m of ms) {
-    const ini = Math.max(m.inicio!, pos), fim = Math.min(m.fim!, texto.length);
+    const ini = Math.max(m.inicio ?? 0, pos), fim = Math.min(m.fim ?? texto.length, texto.length);
     if (fim <= ini) continue;
     if (ini > pos) out.push(texto.slice(pos, ini));
     out.push(<mark key={m.id} style={{ background: m.cor_destaque }} className="cursor-pointer rounded-sm" onClick={(e) => { if (window.getSelection()?.toString()) return; e.stopPropagation(); onMarca(m); }}>{texto.slice(ini, fim)}</mark>);
