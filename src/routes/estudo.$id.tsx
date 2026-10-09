@@ -14,6 +14,8 @@ export const Route = createFileRoute("/estudo/$id")({
       { name: "description", content: "Leia o texto em português com o vídeo em Libras sincronizado por parágrafo." },
       { property: "og:title", content: "Leitor bilíngue — Estudo em Libras" },
       { property: "og:description", content: "Toque em um parágrafo e o vídeo em Libras pula para o trecho certo." },
+      { property: "og:type", content: "article" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Leitor,
@@ -38,6 +40,7 @@ function Leitor() {
   const [editMarca, setEditMarca] = useState<Anotacao | null>(null);
   const [modoTempo, setModoTempo] = useState(false);
   const [painelOcultos, setPainelOcultos] = useState(false);
+  const [erroVideo, setErroVideo] = useState(false);
   const trava = useRef<number | null>(null);
   const estaOculto = (p: Paragrafo) => p.oculto ?? LIXO.test(p.texto_portugues);
   const visiveis = paras.filter((p) => !estaOculto(p));
@@ -167,6 +170,7 @@ function Leitor() {
             onPause={() => setTocando(false)}
             onTimeUpdate={(e) => setTempo(e.currentTarget.currentTime)}
             onLoadedMetadata={(e) => { setDur(e.currentTarget.duration); e.currentTarget.playbackRate = vel; }}
+            onError={() => setErroVideo(true)}
             onClick={alternar}
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
@@ -174,6 +178,12 @@ function Leitor() {
           />
         ) : (
           <SemVideo onSave={async (u) => { const np = { ...pub, video_url: u }; await atualizarPublicacao(np); setPub(np); }} />
+        )}
+        {erroVideo && (
+          <div role="alert" className="absolute inset-x-4 top-1/2 z-10 -translate-y-1/2 border bg-popover p-4 text-center text-sm">
+            <p className="font-semibold">O vídeo não pôde ser carregado.</p>
+            <p className="mt-1 text-muted-foreground">Confira sua conexão ou tente abrir o estudo novamente.</p>
+          </div>
         )}
         {hud && (
           <div className="pointer-events-none absolute left-1/2 top-[40%] z-10 -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-background/80 px-5 py-3 text-2xl font-bold tabular-nums backdrop-blur">
@@ -212,6 +222,7 @@ function Leitor() {
               key={p.id}
               p={p}
               ativo={ativo === p.id}
+              acompanhando={tocando}
               notas={notas.filter((n) => n.paragrafo_id === p.id)}
               temVideo={!!pub.video_url}
               modoTempo={modoTempo}
@@ -293,8 +304,8 @@ function renderMarcado(texto: string, marcas: Anotacao[], onMarca: (m: Anotacao)
   return out;
 }
 
-function ParagrafoView({ p, ativo, notas, temVideo, modoTempo, onTap, onOcultar, onMarca, onSelect, onSync, onNotas }: {
-  p: Paragrafo; ativo: boolean; notas: Anotacao[]; temVideo: boolean; modoTempo: boolean;
+function ParagrafoView({ p, ativo, acompanhando, notas, temVideo, modoTempo, onTap, onOcultar, onMarca, onSelect, onSync, onNotas }: {
+  p: Paragrafo; ativo: boolean; acompanhando: boolean; notas: Anotacao[]; temVideo: boolean; modoTempo: boolean;
   onTap: () => void; onOcultar: () => void; onMarca: (m: Anotacao) => void; onSelect: (el: HTMLElement) => void; onSync: () => void;
   onNotas: React.Dispatch<React.SetStateAction<Anotacao[]>>;
 }) {
@@ -304,7 +315,13 @@ function ParagrafoView({ p, ativo, notas, temVideo, modoTempo, onTap, onOcultar,
   const [texto, setTexto] = useState(nota?.texto_comentario ?? "");
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  useEffect(() => { if (ativo) ref.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }, [ativo]);
+  useEffect(() => {
+    if (!ativo || !acompanhando || !ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    if (rect.top < window.innerHeight * 0.42 || rect.bottom > window.innerHeight * 0.9) {
+      ref.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [ativo, acompanhando]);
 
   function escrever(v: string) {
     setTexto(v);
@@ -320,7 +337,7 @@ function ParagrafoView({ p, ativo, notas, temVideo, modoTempo, onTap, onOcultar,
   const temDestaque = notas.some((n) => n.tipo === "destaque");
 
   return (
-    <div className={`mb-3 rounded-2xl border-l-4 px-3 py-2 transition ${ativo ? "border-primary bg-accent/40" : "border-transparent"}`}>
+    <div aria-current={ativo ? "true" : undefined} className={`mb-2 border-l-2 px-3 py-2 transition ${ativo ? "border-primary bg-selection" : "border-transparent"}`}>
       <p
         ref={ref}
         onClick={() => { if (!window.getSelection()?.toString()) onTap(); }}
