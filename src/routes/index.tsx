@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, CalendarDays, Check, Clock3, DatabaseBackup, Link2, Loader2, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { excluirPublicacao, listarPublicacoes, salvarPublicacao, type Publicacao, type TipoPub } from "@/lib/db";
 import { importarUrl, listarArtigos, type ArtigoRevista } from "@/lib/parser";
@@ -34,6 +34,7 @@ function Biblioteca() {
   const [aba, setAba] = useState<TipoPub>("sentinela");
   const [aberto, setAberto] = useState(false);
   const [backup, setBackup] = useState(false);
+  const semanaAtiva = useRef<HTMLButtonElement>(null);
   const [selecionadas, setSelecionadas] = useState<Partial<Record<TipoPub, string>>>({});
   const recarregar = () => listarPublicacoes().then(setPubs);
   useEffect(() => { recarregar(); }, []);
@@ -56,6 +57,9 @@ function Biblioteca() {
   const atual = semanaSelecionada?.intervalo
     ? semanaSelecionada.intervalo.inicio <= hojeIso() && semanaSelecionada.intervalo.fim >= hojeIso()
     : false;
+  useEffect(() => {
+    semanaAtiva.current?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [aba, chaveSelecionada]);
 
   return (
     <main className="mx-auto min-h-screen max-w-2xl pb-28">
@@ -72,15 +76,16 @@ function Biblioteca() {
 
       <div className="grid grid-cols-2 border-b px-4 pt-2" role="tablist" aria-label="Publicação">
         {ABAS.map((item) => (
-          <button
+          <Button
             key={item.id}
+            variant="ghost"
             role="tab"
             aria-selected={aba === item.id}
             onClick={() => setAba(item.id)}
-            className={`min-h-11 border-b-2 px-2 text-sm font-semibold transition ${aba === item.id ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
+            className={`h-11 rounded-none border-b-2 px-2 text-sm font-semibold shadow-none transition hover:bg-transparent ${aba === item.id ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
           >
             {item.nome}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -90,15 +95,19 @@ function Biblioteca() {
             {semanas.map((grupo) => {
               const estaAtual = Boolean(grupo.intervalo && grupo.intervalo.inicio <= hojeIso() && grupo.intervalo.fim >= hojeIso());
               return (
-                <button
+                <Button
                   key={grupo.chave}
+                  ref={grupo.chave === chaveSelecionada ? semanaAtiva : undefined}
+                  variant="outline"
                   onClick={() => setSelecionadas((s) => ({ ...s, [aba]: grupo.chave }))}
                   aria-pressed={grupo.chave === chaveSelecionada}
-                  className={`min-w-[9rem] snap-center border px-3 py-2 text-left transition ${grupo.chave === chaveSelecionada ? "border-primary bg-selection" : "border-border bg-card"}`}
+                  className={`h-auto min-w-[9rem] snap-center justify-start rounded-none px-3 py-2 text-left shadow-none transition ${grupo.chave === chaveSelecionada ? "border-primary bg-selection" : "border-border bg-card"}`}
                 >
-                  <span className="block text-xs font-semibold text-primary">{estaAtual ? "Semana atual" : "Semana"}</span>
-                  <span className="line-clamp-2 text-sm font-medium">{grupo.estudos[0]?.semana}</span>
-                </button>
+                  <span className="min-w-0 whitespace-normal">
+                    <span className="block text-xs font-semibold text-primary">{estaAtual ? "Semana atual" : "Semana"}</span>
+                    <span className="line-clamp-2 text-sm font-medium">{grupo.estudos[0]?.semana}</span>
+                  </span>
+                </Button>
               );
             })}
           </div>
