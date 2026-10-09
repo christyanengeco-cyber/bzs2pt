@@ -183,7 +183,7 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: (t: Tip
                     onChange={() => alternarMarcado(a.url)}
                     className="h-5 w-5 shrink-0 accent-primary"
                   />
-                  <p onClick={() => !carregando && !feitos.has(a.url) && alternarMarcado(a.url) className="min-w-0 flex-1 text-sm font-semibold leading-snug">{a.titulo}</p>
+                  <p onClick={() => !carregando && !feitos.has(a.url) && alternarMarcado(a.url)} className="min-w-0 flex-1 text-sm font-semibold leading-snug">{a.titulo}</p>
                   {feitos.has(a.url) ? (
                     <Check className="h-5 w-5 text-primary" />
                   ) : carregando === a.url ? (
