@@ -18,7 +18,8 @@ export const Route = createFileRoute("/estudo/$id")({
   component: Leitor,
 });
 
-const VELOCIDADES = [0.75, 1, 1.25, 1.5];
+const VELOCIDADES = Array.from({ length: 16 }, (_, i) => Math.round((0.5 + i * 0.1) * 10) / 10);
+const limitarVel = (v: number) => Math.min(2, Math.max(0.5, Math.round(v * 10) / 10));
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 function Leitor() {
@@ -43,6 +44,42 @@ function Leitor() {
   const seekTo = (s: number) => {
     const v = video.current; if (!v) return;
     v.currentTime = s; v.play().catch(() => {});
+  };
+
+  // gestos estilo JW Library
+  const [hud, setHud] = useState<string | null>(null);
+  const hudTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const gesto = useRef<{ dedos: number; y: number; velIni: number; moveu: boolean } | null>(null);
+  const mostrarHud = (t: string) => {
+    setHud(t); clearTimeout(hudTimer.current);
+    hudTimer.current = setTimeout(() => setHud(null), 900);
+  };
+  const aplicarVel = (n: number) => {
+    const v = limitarVel(n); setVel(v);
+    if (video.current) video.current.playbackRate = v;
+    return v;
+  };
+  const alternar = () => {
+    const v = video.current; if (!v) return;
+    if (v.paused) { v.play().catch(() => {}); mostrarHud("▶"); } else { v.pause(); mostrarHud("❚❚"); }
+  };
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches;
+    if (t.length >= 2) gesto.current = { dedos: 2, y: 0, velIni: vel, moveu: false };
+    else if (!gesto.current) gesto.current = { dedos: 1, y: t[0]!.clientY, velIni: vel, moveu: false };
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    const g = gesto.current; if (!g || g.dedos !== 1) return;
+    const dy = g.y - e.touches[0]!.clientY;
+    if (Math.abs(dy) > 15) g.moveu = true;
+    if (g.moveu) mostrarHud(`${aplicarVel(g.velIni + Math.trunc(dy / 25) * 0.1).toFixed(1)}x`);
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const g = gesto.current; if (!g) return;
+    if (e.touches.length > 0) return;
+    gesto.current = null;
+    if (g.dedos === 2) { e.preventDefault(); alternar(); }
+    else if (g.moveu) e.preventDefault();
   };
 
   // paragrafo atual conforme o vídeo
