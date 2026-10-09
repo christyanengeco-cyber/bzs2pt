@@ -324,6 +324,10 @@ function ParagrafoView({ p, ativo, acompanhando, notas, temVideo, modoTempo, onT
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
+    setTexto(nota?.texto_comentario ?? "");
+  }, [nota?.texto_comentario]);
+
+  useEffect(() => {
     if (!ativo || !acompanhando || !ref.current) return;
     const rect = ref.current.getBoundingClientRect();
     if (rect.top < window.innerHeight * 0.42 || rect.bottom > window.innerHeight * 0.9) {
