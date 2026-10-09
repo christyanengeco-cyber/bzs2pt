@@ -18,7 +18,8 @@ export const Route = createFileRoute("/estudo/$id")({
   component: Leitor,
 });
 
-const VELOCIDADES = [0.75, 1, 1.25, 1.5];
+const VELOCIDADES = Array.from({ length: 16 }, (_, i) => Math.round((0.5 + i * 0.1) * 10) / 10);
+const limitarVel = (v: number) => Math.min(2, Math.max(0.5, Math.round(v * 10) / 10));
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 function Leitor() {
@@ -43,6 +44,42 @@ function Leitor() {
   const seekTo = (s: number) => {
     const v = video.current; if (!v) return;
     v.currentTime = s; v.play().catch(() => {});
+  };
+
+  // gestos estilo JW Library
+  const [hud, setHud] = useState<string | null>(null);
+  const hudTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const gesto = useRef<{ dedos: number; y: number; velIni: number; moveu: boolean } | null>(null);
+  const mostrarHud = (t: string) => {
+    setHud(t); clearTimeout(hudTimer.current);
+    hudTimer.current = setTimeout(() => setHud(null), 900);
+  };
+  const aplicarVel = (n: number) => {
+    const v = limitarVel(n); setVel(v);
+    if (video.current) video.current.playbackRate = v;
+    return v;
+  };
+  const alternar = () => {
+    const v = video.current; if (!v) return;
+    if (v.paused) { v.play().catch(() => {}); mostrarHud("▶"); } else { v.pause(); mostrarHud("❚❚"); }
+  };
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches;
+    if (t.length >= 2) gesto.current = { dedos: 2, y: 0, velIni: vel, moveu: false };
+    else if (!gesto.current) gesto.current = { dedos: 1, y: t[0]!.clientY, velIni: vel, moveu: false };
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    const g = gesto.current; if (!g || g.dedos !== 1) return;
+    const dy = g.y - e.touches[0]!.clientY;
+    if (Math.abs(dy) > 15) g.moveu = true;
+    if (g.moveu) mostrarHud(`${aplicarVel(g.velIni + Math.trunc(dy / 25) * 0.1).toFixed(1)}x`);
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const g = gesto.current; if (!g) return;
+    if (e.touches.length > 0) return;
+    gesto.current = null;
+    if (g.dedos === 2) { e.preventDefault(); alternar(); }
+    else if (g.moveu) e.preventDefault();
   };
 
   // paragrafo atual conforme o vídeo
@@ -90,15 +127,23 @@ function Leitor() {
             src={pub.video_url}
             playsInline
             preload="metadata"
-            className="min-h-0 w-full flex-1 object-contain"
+            className="min-h-0 w-full flex-1 touch-none object-contain"
             onPlay={() => setTocando(true)}
             onPause={() => setTocando(false)}
             onTimeUpdate={(e) => setTempo(e.currentTarget.currentTime)}
-            onLoadedMetadata={(e) => setDur(e.currentTarget.duration)}
-            onClick={(e) => (e.currentTarget.paused ? e.currentTarget.play() : e.currentTarget.pause())}
+            onLoadedMetadata={(e) => { setDur(e.currentTarget.duration); e.currentTarget.playbackRate = vel; }}
+            onClick={alternar}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
           />
         ) : (
           <SemVideo onSave={async (u) => { const np = { ...pub, video_url: u }; await atualizarPublicacao(np); setPub(np); }} />
+        )}
+        {hud && (
+          <div className="pointer-events-none absolute left-1/2 top-[40%] z-10 -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-background/80 px-5 py-3 text-2xl font-bold tabular-nums backdrop-blur">
+            {hud}
+          </div>
         )}
         {pub.video_url && (
           <div className="flex items-center gap-3 bg-card/95 px-3 py-2">
@@ -108,10 +153,10 @@ function Leitor() {
             <span className="w-10 text-xs tabular-nums text-muted-foreground">{fmt(tempo)}</span>
             <input type="range" min={0} max={dur || 0} step={0.1} value={tempo} onChange={(e) => { if (video.current) video.current.currentTime = +e.target.value; }} className="flex-1 accent-primary" aria-label="Progresso" />
             <button
-              onClick={() => { const n = VELOCIDADES[(VELOCIDADES.indexOf(vel) + 1) % VELOCIDADES.length] ?? 1; setVel(n); if (video.current) video.current.playbackRate = n; }}
-              className="w-14 rounded-lg bg-secondary py-1 text-xs font-bold"
+              onClick={() => { const i = VELOCIDADES.indexOf(vel); aplicarVel(VELOCIDADES[(i + 1) % VELOCIDADES.length] ?? 1); }}
+              className="w-14 rounded-lg bg-secondary py-1 text-xs font-bold tabular-nums"
             >
-              {vel}x
+              {vel.toFixed(1)}x
             </button>
           </div>
         )}
