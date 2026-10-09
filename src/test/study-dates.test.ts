@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { escolherSemanaInicial, extrairIntervaloSemana } from "@/lib/study-dates";
+import { escolherSemanaInicial, extrairIntervaloSemana, ordenarSemanasCronologicamente } from "@/lib/study-dates";
 import type { Publicacao } from "@/lib/db";
 
 const pub = (id: string, semana_inicio: string, semana_fim: string): Publicacao => ({
@@ -8,6 +8,13 @@ const pub = (id: string, semana_inicio: string, semana_fim: string): Publicacao 
 });
 
 describe("datas de estudo", () => {
+  it("mostra a anterior à esquerda e a próxima à direita sem alterar a seleção inicial", () => {
+    const estudos = [pub("proxima", "2026-10-12", "2026-10-18"), pub("anterior", "2026-09-28", "2026-10-04"), pub("atual", "2026-10-05", "2026-10-11")];
+    const ordenados = estudos.sort(ordenarSemanasCronologicamente);
+    expect(ordenados.map((p) => p.id)).toEqual(["anterior", "atual", "proxima"]);
+    expect(escolherSemanaInicial(ordenados, "2026-10-09")).toEqual({ id: "atual", atual: true });
+    expect(escolherSemanaInicial(ordenados, "2026-10-25")).toEqual({ id: "proxima", atual: false });
+  });
   it("interpreta semanas no mesmo mês", () => {
     expect(extrairIntervaloSemana("12–18 de outubro de 2026")).toEqual({ inicio: "2026-10-12", fim: "2026-10-18" });
   });
