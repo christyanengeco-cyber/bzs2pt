@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { aplicarTema, type Tema } from "../components/ThemeToggle";
 
 function NotFoundComponent() {
   return (
@@ -58,12 +59,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-      { name: "theme-color", content: "#1a1f2e" },
+      { name: "theme-color", content: "#1c1c1e" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { title: "Estudo em Libras" },
       { name: "description", content: "Estudo pessoal bilíngue Libras / Português." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -101,7 +100,14 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   useEffect(() => {
-    if (localStorage.getItem("tema") === "claro") document.documentElement.classList.remove("dark");
+    const salvo = localStorage.getItem("tema");
+    const tema: Tema = salvo === "claro" || salvo === "escuro" ? salvo : "sistema";
+    aplicarTema(tema);
+    const media = matchMedia("(prefers-color-scheme: dark)");
+    const atualizar = () => { if ((localStorage.getItem("tema") ?? "sistema") === "sistema") aplicarTema("sistema"); };
+    media.addEventListener("change", atualizar);
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+    return () => media.removeEventListener("change", atualizar);
   }, []);
   return (
     <QueryClientProvider client={queryClient}>

@@ -1,5 +1,6 @@
 import { uid, type Paragrafo, type Publicacao, type TipoPub } from "./db";
 import { baixarPagina } from "./fetch-page.functions";
+import { extrairIntervaloSemana } from "./study-dates";
 
 const PROXIES = [
   (u: string) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
@@ -120,6 +121,8 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
     doc.querySelector(".contextTtl, .pubRefs, header p, .du-color--textSubdued")?.textContent?.match(/\d{1,2}(?:\s*(?:de\s+\w+)?\s*[-–a]\s*\d{1,2})?\s+de\s+\w+(?:\s+de\s+\d{4})?/i) ||
     bodyText.match(/(?:SEMANA DE\s*)?\d{1,2}(?:\s*(?:de\s+\w+)?)?\s*[-–]\s*\d{1,2}\s+de\s+\w+(?:\s+de\s+\d{4})?/i);
   const semana = semanaMatch?.[0].trim() ?? new Date().toLocaleDateString("pt-BR");
+  const anoUrl = url.match(/(?:19|20)\d{2}/)?.[0];
+  const intervalo = extrairIntervaloSemana(semana, anoUrl ? Number(anoUrl) : new Date().getFullYear());
 
   // 2. tipo
   const sinal = (url + " " + titulo + " " + bodyText.slice(0, 3000)).toLowerCase();
@@ -206,7 +209,10 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
   if (!markers.length) avisos.push("Marcadores de tempo não encontrados — use o botão de relógio em cada parágrafo para sincronizar.");
 
   return {
-    publicacao: { id: pubId, tipo, titulo, semana, url_origem: url, video_url, criado_em: Date.now() },
+    publicacao: {
+      id: pubId, tipo, titulo, semana, semana_inicio: intervalo?.inicio, semana_fim: intervalo?.fim,
+      url_origem: url, video_url, criado_em: Date.now(),
+    },
     paragrafos,
     avisos,
   };
