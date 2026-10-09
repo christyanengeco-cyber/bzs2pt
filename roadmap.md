@@ -6,4 +6,4 @@
 - [x] Adicionar backup e restauração local
 - [x] Refinar leitura, vídeo e acessibilidade
 - [x] Habilitar abertura offline da interface
-- [ ] Validar testes, preview e fluxos no celular e computador
+- [x] Validar testes, preview e fluxos no celular e computador
