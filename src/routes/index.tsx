@@ -222,9 +222,10 @@ function ImportModal({ existentes, onClose, onDone }: { existentes: Set<string>;
     } finally { setCarregando(false); }
   }
 
+  const [lote, setLote] = useState({ total: 0, feitos: 0 });
   async function importarVarios(lista: ArtigoRevista[]) {
-    setErro(""); setCarregando(true);
-    for (const artigo of lista) await importarUm(artigo.url);
+    setErro(""); setCarregando(true); setLote({ total: lista.length, feitos: 0 });
+    for (const artigo of lista) { await importarUm(artigo.url); setLote((l) => ({ ...l, feitos: l.feitos + 1 })); }
     setCarregando(false);
   }
 
@@ -261,6 +262,7 @@ function ImportModal({ existentes, onClose, onDone }: { existentes: Set<string>;
                 );
               })}
             </ul>
+            {carregando && lote.total > 0 && <AnelProgresso feitos={lote.feitos} total={lote.total} tempo={cron} />}
             <div className="mt-4 flex flex-col gap-2">
               {falhos.length > 0 && <Button variant="outline" disabled={carregando} onClick={() => importarVarios(falhos)}><RefreshCw /> Tentar falhas novamente</Button>}
               <Button disabled={carregando || pendentes.length === 0} onClick={() => importarVarios(pendentes)}>
