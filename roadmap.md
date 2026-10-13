@@ -11,3 +11,4 @@
 - [x] Refinar leitura, vídeo e acessibilidade
 - [x] Habilitar abertura offline da interface
 - [x] Validar testes, preview e fluxos no celular e computador
+- [x] Lápis de edição, marca-texto no celular, player refinado, anel de progresso, referências clicáveis

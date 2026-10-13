@@ -1,7 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Clock, MessageCircle, Pause, Play, Eraser, Video, EyeOff, Eye, Trash2, X } from "lucide-react";
-import { LIXO } from "@/lib/parser";
+import { ArrowLeft, Clock, MessageCircle, Pause, Play, Eraser, Video, EyeOff, Eye, Trash2, X, Pencil, Maximize, Minimize, RotateCcw, RotateCw, Loader2, BookOpen } from "lucide-react";
+import { LIXO, buscarReferencia, importarUrl, type ConteudoReferencia } from "@/lib/parser";
+import { salvarPublicacao } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
@@ -44,6 +45,42 @@ function Leitor() {
   const [painelOcultos, setPainelOcultos] = useState(false);
   const [erroVideo, setErroVideo] = useState(false);
   const trava = useRef<number | null>(null);
+  const ultimaSelecao = useRef(0);
+  const [ref, setRef] = useState<{ href: string; texto: string } | null>(null);
+  const playerRef = useRef<HTMLDivElement>(null);
+  const [telaCheia, setTelaCheia] = useState(false);
+  const [controles, setControles] = useState(true);
+  const ctrlTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const cutucar = () => {
+    setControles(true); clearTimeout(ctrlTimer.current);
+    ctrlTimer.current = setTimeout(() => { if (video.current && !video.current.paused) setControles(false); }, 500);
+  };
+  useEffect(() => { if (!tocando) { setControles(true); clearTimeout(ctrlTimer.current); } else cutucar(); }, [tocando]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const f = () => setTelaCheia(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", f);
+    return () => document.removeEventListener("fullscreenchange", f);
+  }, []);
+  const alternarTelaCheia = async () => {
+    const el = playerRef.current; const v = video.current as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null;
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else if (el?.requestFullscreen) await el.requestFullscreen();
+      else v?.webkitEnterFullscreen?.();
+    } catch { v?.webkitEnterFullscreen?.(); }
+  };
+  const pular = (d: number) => { const v = video.current; if (!v) return; v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + d)); mostrarHud(d > 0 ? `+${d}s` : `${d}s`); cutucar(); };
+  // seleção no celular: acompanha a seleção nativa
+  useEffect(() => {
+    const f = () => {
+      const s = window.getSelection();
+      if (!s || s.isCollapsed) return;
+      const n = s.anchorNode; const el = (n instanceof Element ? n : n?.parentElement)?.closest<HTMLElement>("[data-par]");
+      if (el?.dataset["par"]) { ultimaSelecao.current = Date.now(); onSelect(el.dataset["par"], el); }
+    };
+    document.addEventListener("selectionchange", f);
+    return () => document.removeEventListener("selectionchange", f);
+  }); // eslint-disable-line react-hooks/exhaustive-deps
   const estaOculto = (p: Paragrafo) => p.oculto ?? LIXO.test(p.texto_portugues);
   const visiveis = paras.filter((p) => !estaOculto(p));
   const ocultos = paras.filter(estaOculto);
@@ -70,7 +107,7 @@ function Leitor() {
   const gesto = useRef<{ dedos: number; y: number; velIni: number; moveu: boolean } | null>(null);
   const mostrarHud = (t: string) => {
     setHud(t); clearTimeout(hudTimer.current);
-    hudTimer.current = setTimeout(() => setHud(null), 900);
+    hudTimer.current = setTimeout(() => setHud(null), 700);
   };
   const aplicarVel = (n: number) => {
     const v = limitarVel(n); setVel(v);
@@ -80,6 +117,7 @@ function Leitor() {
   const alternar = () => {
     const v = video.current; if (!v) return;
     if (v.paused) { v.play().catch(() => {}); mostrarHud("▶"); } else { v.pause(); mostrarHud("❚❚"); }
+    cutucar();
   };
   const onTouchStart = (e: React.TouchEvent) => {
     const t = e.touches;
@@ -103,6 +141,7 @@ function Leitor() {
     gesto.current = null;
     if (g.dedos === 2) { e.preventDefault(); alternar(); }
     else if (g.moveu) e.preventDefault();
+    else { e.preventDefault(); if (controles && tocando) setControles(false); else cutucar(); }
   };
 
   // paragrafo atual conforme o vídeo
@@ -122,6 +161,7 @@ function Leitor() {
   function onSelect(pid: string, el: HTMLElement) {
     const s = window.getSelection();
     if (!s || s.isCollapsed || !el.contains(s.anchorNode)) return;
+    if (!s.rangeCount) return;
     const r = s.getRangeAt(0);
     const pre = document.createRange();
     pre.selectNodeContents(el); pre.setEnd(r.startContainer, r.startOffset);
@@ -150,11 +190,11 @@ function Leitor() {
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden">
       {/* PLAYER 35% */}
-      <div className="relative flex h-[35dvh] shrink-0 flex-col bg-player">
-        <Link to="/" aria-label="Voltar" className="absolute left-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-background/70 backdrop-blur">
+      <div ref={playerRef} onMouseMove={cutucar} className={`relative flex shrink-0 flex-col bg-player ${telaCheia ? "h-[100dvh]" : "h-[35dvh]"}`}>
+        <Link to="/" aria-label="Voltar" className={`absolute left-3 top-3 z-10 transition-opacity duration-300 ${controles ? "opacity-100" : "pointer-events-none opacity-0"} grid h-9 w-9 place-items-center rounded-full bg-background/70 backdrop-blur`}>
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <div className="absolute right-3 top-3 z-10 flex gap-2">
+        <div className={`absolute right-3 top-3 z-10 flex gap-2 transition-opacity duration-300 ${controles ? "opacity-100" : "pointer-events-none opacity-0"}`}>
           <span className="rounded-md bg-card"><ThemeToggle /></span>
           {ocultos.length > 0 && (
             <button aria-label="Itens ocultos" onClick={() => setPainelOcultos(true)} className="flex h-9 items-center gap-1 rounded-full bg-background/70 px-3 text-xs font-bold backdrop-blur">
@@ -162,8 +202,8 @@ function Leitor() {
             </button>
           )}
           {pub.video_url && (
-            <button aria-label="Modo ajustar tempos" aria-pressed={modoTempo} onClick={() => setModoTempo((m) => !m)} className={`grid h-9 w-9 place-items-center rounded-full backdrop-blur ${modoTempo ? "bg-primary text-primary-foreground" : "bg-background/70"}`}>
-              <Clock className="h-4 w-4" />
+            <button aria-label="Modo de edição" aria-pressed={modoTempo} onClick={() => setModoTempo((m) => !m)} className={`grid h-9 w-9 place-items-center rounded-full backdrop-blur ${modoTempo ? "bg-primary text-primary-foreground" : "bg-background/70"}`}>
+              <Pencil className="h-4 w-4" />
             </button>
           )}
         </div>
@@ -179,7 +219,8 @@ function Leitor() {
             onTimeUpdate={(e) => setTempo(e.currentTarget.currentTime)}
             onLoadedMetadata={(e) => { setDur(e.currentTarget.duration); e.currentTarget.playbackRate = vel; }}
             onError={() => setErroVideo(true)}
-            onClick={alternar}
+            onClick={() => (controles && tocando ? setControles(false) : cutucar())}
+            onDoubleClick={alternar}
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
@@ -194,22 +235,28 @@ function Leitor() {
           </div>
         )}
         {hud && (
-          <div className="pointer-events-none absolute left-1/2 top-[40%] z-10 -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-background/80 px-5 py-3 text-2xl font-bold tabular-nums backdrop-blur">
+          <div aria-live="polite" className="pointer-events-none absolute bottom-14 right-3 z-10 rounded-md bg-background/70 px-2 py-0.5 text-xs font-bold tabular-nums backdrop-blur">
             {hud}
           </div>
         )}
         {pub.video_url && (
-          <div className="flex items-center gap-3 bg-card/95 px-3 py-2">
-            <button aria-label={tocando ? "Pausar" : "Tocar"} onClick={() => (tocando ? video.current?.pause() : video.current?.play())} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
+          <div className={`absolute inset-x-0 bottom-0 z-10 flex items-center gap-2 bg-background/70 px-2 py-1.5 backdrop-blur transition-opacity duration-300 ${controles ? "opacity-100" : "pointer-events-none opacity-0"}`}>
+            <button aria-label="Voltar 5 segundos" onClick={() => pular(-5)} className="grid h-8 w-8 shrink-0 place-items-center rounded-full"><RotateCcw className="h-4 w-4" /></button>
+            <button aria-label={tocando ? "Pausar" : "Tocar"} onClick={() => { if (tocando) video.current?.pause(); else video.current?.play().catch(() => {}); }} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
               {tocando ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </button>
-            <span className="w-10 text-xs tabular-nums text-muted-foreground">{fmt(tempo)}</span>
-            <input type="range" min={0} max={dur || 0} step={0.1} value={tempo} onChange={(e) => { if (video.current) video.current.currentTime = +e.target.value; }} className="flex-1 accent-primary" aria-label="Progresso" />
+            <button aria-label="Avançar 5 segundos" onClick={() => pular(5)} className="grid h-8 w-8 shrink-0 place-items-center rounded-full"><RotateCw className="h-4 w-4" /></button>
+            <span className="w-9 text-xs tabular-nums text-muted-foreground">{fmt(tempo)}</span>
+            <input type="range" min={0} max={dur || 0} step={0.1} value={tempo} onChange={(e) => { if (video.current) video.current.currentTime = +e.target.value; cutucar(); }} className="min-w-0 flex-1 accent-primary" aria-label="Progresso" />
             <button
-              onClick={() => { const i = VELOCIDADES.indexOf(vel); aplicarVel(VELOCIDADES[(i + 1) % VELOCIDADES.length] ?? 1); }}
-              className="w-14 rounded-lg bg-secondary py-1 text-xs font-bold tabular-nums"
+              aria-label="Velocidade"
+              onClick={() => { const i = VELOCIDADES.indexOf(vel); aplicarVel(VELOCIDADES[(i + 1) % VELOCIDADES.length] ?? 1); cutucar(); }}
+              className="shrink-0 px-1 text-xs font-semibold tabular-nums text-muted-foreground"
             >
               {vel.toFixed(1)}x
+            </button>
+            <button aria-label={telaCheia ? "Sair da tela cheia" : "Tela cheia"} onClick={alternarTelaCheia} className="grid h-8 w-8 shrink-0 place-items-center rounded-full">
+              {telaCheia ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
             </button>
           </div>
         )}
@@ -222,7 +269,7 @@ function Leitor() {
           <h1 className="mb-5 text-2xl font-bold leading-tight">{pub.titulo}</h1>
           {modoTempo && (
             <p className="mb-4 rounded-xl bg-accent p-3 text-sm text-accent-foreground">
-              Modo ajustar tempos ligado: o relógio em cada trecho grava o tempo atual do vídeo. Toque no relógio do topo para sair.
+              Modo de edição ligado: o relógio em cada trecho grava o tempo atual do vídeo e o olho oculta o trecho. Toque no lápis do topo para sair.
             </p>
           )}
           {visiveis.map((p) => (
@@ -234,7 +281,8 @@ function Leitor() {
               notas={notas.filter((n) => n.paragrafo_id === p.id)}
               temVideo={!!pub.video_url}
               modoTempo={modoTempo}
-              onTap={() => { setAtivo(p.id); if (pub.video_url) { trava.current = p.timestamp_inicio; seekTo(p.timestamp_inicio); } }}
+              onRef={(href, texto) => setRef({ href, texto })}
+              onTap={() => { if (sel || Date.now() - ultimaSelecao.current < 600 || window.getSelection()?.toString()) return; setAtivo(p.id); if (pub.video_url) { trava.current = p.timestamp_inicio; seekTo(p.timestamp_inicio); } }}
               onOcultar={() => definirOculto(p, true)}
               onMarca={(m) => { setSel(null); setEditMarca(m); }}
               onSelect={(el) => onSelect(p.id, el)}
@@ -285,36 +333,89 @@ function Leitor() {
         </div>
       )}
 
+      {ref && <PainelReferencia href={ref.href} texto={ref.texto} onClose={() => setRef(null)} />}
+
       {sel && (
         <div className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border bg-popover p-2 shadow-2xl">
           {CORES.map((c) => (
-            <button key={c} aria-label={`Marcar ${c}`} onMouseDown={(e) => e.preventDefault()} onClick={() => marcar(c)} className="h-9 w-9 rounded-full border-2 border-background" style={{ background: c }} />
+            <button key={c} aria-label={`Marcar ${c}`} onPointerDown={(e) => { e.preventDefault(); marcar(c); }} className="h-9 w-9 rounded-full border-2 border-background" style={{ background: c }} />
           ))}
-          <button onClick={() => setSel(null)} className="px-2 text-sm text-muted-foreground">Cancelar</button>
+          <button onPointerDown={(e) => { e.preventDefault(); setSel(null); window.getSelection()?.removeAllRanges(); }} className="px-2 text-sm text-muted-foreground">Cancelar</button>
         </div>
       )}
     </div>
   );
 }
 
-function renderMarcado(texto: string, marcas: Anotacao[], onMarca: (m: Anotacao) => void) {
-  const ms = marcas.filter((m) => m.tipo === "destaque" && m.inicio != null).sort((a, b) => (a.inicio ?? 0) - (b.inicio ?? 0));
+function renderMarcado(texto: string, marcas: Anotacao[], onMarca: (m: Anotacao) => void, links: Paragrafo["links"] = [], onRef?: (href: string, t: string) => void) {
+  const ms = marcas.filter((m) => m.tipo === "destaque" && m.inicio != null);
+  const cortes = new Set([0, texto.length]);
+  for (const m of ms) { cortes.add(Math.max(0, m.inicio ?? 0)); cortes.add(Math.min(texto.length, m.fim ?? texto.length)); }
+  for (const l of links ?? []) { cortes.add(l.inicio); cortes.add(l.fim); }
+  const pts = [...cortes].filter((x) => x >= 0 && x <= texto.length).sort((x, y) => x - y);
   const out: React.ReactNode[] = [];
-  let pos = 0;
-  for (const m of ms) {
-    const ini = Math.max(m.inicio ?? 0, pos), fim = Math.min(m.fim ?? texto.length, texto.length);
+  for (let i = 0; i < pts.length - 1; i++) {
+    const ini = pts[i]!, fim = pts[i + 1]!;
     if (fim <= ini) continue;
-    if (ini > pos) out.push(texto.slice(pos, ini));
-    out.push(<mark key={m.id} style={{ background: m.cor_destaque }} className="cursor-pointer rounded-sm" onClick={(e) => { if (window.getSelection()?.toString()) return; e.stopPropagation(); onMarca(m); }}>{texto.slice(ini, fim)}</mark>);
-    pos = fim;
+    let node: React.ReactNode = texto.slice(ini, fim);
+    const l = (links ?? []).find((x) => x.inicio <= ini && x.fim >= fim);
+    if (l && onRef) node = <span className="text-reference underline decoration-reference/40 underline-offset-2" onClick={(e) => { if (window.getSelection()?.toString()) return; e.stopPropagation(); onRef(l.href, texto.slice(l.inicio, l.fim)); }}>{node}</span>;
+    const m = [...ms].reverse().find((x) => (x.inicio ?? 0) <= ini && (x.fim ?? texto.length) >= fim);
+    if (m) node = <mark style={{ background: m.cor_destaque }} className="cursor-pointer rounded-sm text-foreground" onClick={(e) => { if (window.getSelection()?.toString()) return; e.stopPropagation(); onMarca(m); }}>{node}</mark>;
+    out.push(<span key={ini}>{node}</span>);
   }
-  out.push(texto.slice(pos));
   return out;
 }
 
-function ParagrafoView({ p, ativo, acompanhando, notas, temVideo, modoTempo, onTap, onOcultar, onMarca, onSelect, onSync, onNotas }: {
+function PainelReferencia({ href, texto, onClose }: { href: string; texto: string; onClose: () => void }) {
+  const [dados, setDados] = useState<ConteudoReferencia | null>(null);
+  const [erro, setErro] = useState("");
+  const [importando, setImportando] = useState(false);
+  const navigate = useNavigate();
+  useEffect(() => {
+    let vivo = true;
+    buscarReferencia(href).then((d) => vivo && setDados(d)).catch((e) => vivo && setErro(e instanceof Error ? e.message : String(e)));
+    return () => { vivo = false; };
+  }, [href]);
+  async function importar() {
+    setImportando(true);
+    try {
+      const r = await importarUrl(href.split("#")[0] ?? href);
+      await salvarPublicacao(r.publicacao, r.paragrafos);
+      onClose();
+      navigate({ to: "/estudo/$id", params: { id: r.publicacao.id } });
+    } catch (e) { setErro(e instanceof Error ? e.message : String(e)); setImportando(false); }
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/60" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label={texto} className="flex max-h-[70dvh] w-full max-w-2xl flex-col rounded-t-2xl border bg-card" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 border-b px-4 py-3">
+          <p className="min-w-0 flex-1 truncate font-bold text-reference">{texto}</p>
+          <button onClick={onClose} aria-label="Fechar" className="grid h-8 w-8 place-items-center"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[1.05rem] leading-relaxed">
+          {!dados && !erro && <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Buscando…</p>}
+          {erro && <p className="text-sm text-destructive">{erro}</p>}
+          {dados && <>
+            {!dados.biblia && dados.titulo && <p className="mb-2 font-bold">{dados.titulo}</p>}
+            {dados.trechos.map((t, i) => <p key={i} className="mb-2">{t}</p>)}
+          </>}
+        </div>
+        {dados && !dados.biblia && (
+          <div className="border-t p-3">
+            <Button className="w-full" disabled={importando} onClick={importar}>
+              {importando ? <Loader2 className="animate-spin" /> : <BookOpen />} Importar como estudo
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ParagrafoView({ p, ativo, acompanhando, notas, temVideo, modoTempo, onRef, onTap, onOcultar, onMarca, onSelect, onSync, onNotas }: {
   p: Paragrafo; ativo: boolean; acompanhando: boolean; notas: Anotacao[]; temVideo: boolean; modoTempo: boolean;
-  onTap: () => void; onOcultar: () => void; onMarca: (m: Anotacao) => void; onSelect: (el: HTMLElement) => void; onSync: () => void;
+  onRef: (href: string, t: string) => void; onTap: () => void; onOcultar: () => void; onMarca: (m: Anotacao) => void; onSelect: (el: HTMLElement) => void; onSync: () => void;
   onNotas: React.Dispatch<React.SetStateAction<Anotacao[]>>;
 }) {
   const ref = useRef<HTMLParagraphElement>(null);
@@ -353,11 +454,11 @@ function ParagrafoView({ p, ativo, acompanhando, notas, temVideo, modoTempo, onT
       <p
         ref={ref}
         onClick={() => { if (!window.getSelection()?.toString()) onTap(); }}
+        data-par={p.id}
         onMouseUp={() => ref.current && onSelect(ref.current)}
-        onTouchEnd={() => setTimeout(() => ref.current && onSelect(ref.current), 50)}
          className={`cursor-pointer select-text leading-relaxed ${p.pergunta ? "text-base font-bold text-section" : "text-[1.1rem]"}`}
       >
-        {renderMarcado(p.texto_portugues, notas, onMarca)}
+        {renderMarcado(p.texto_portugues, notas, onMarca, p.links, onRef)}
       </p>
       <div className="mt-1 flex items-center gap-1 text-muted-foreground">
         {temVideo && (

@@ -222,9 +222,10 @@ function ImportModal({ existentes, onClose, onDone }: { existentes: Set<string>;
     } finally { setCarregando(false); }
   }
 
+  const [lote, setLote] = useState({ total: 0, feitos: 0 });
   async function importarVarios(lista: ArtigoRevista[]) {
-    setErro(""); setCarregando(true);
-    for (const artigo of lista) await importarUm(artigo.url);
+    setErro(""); setCarregando(true); setLote({ total: lista.length, feitos: 0 });
+    for (const artigo of lista) { await importarUm(artigo.url); setLote((l) => ({ ...l, feitos: l.feitos + 1 })); }
     setCarregando(false);
   }
 
@@ -261,6 +262,7 @@ function ImportModal({ existentes, onClose, onDone }: { existentes: Set<string>;
                 );
               })}
             </ul>
+            {carregando && lote.total > 0 && <AnelProgresso feitos={lote.feitos} total={lote.total} tempo={cron} />}
             <div className="mt-4 flex flex-col gap-2">
               {falhos.length > 0 && <Button variant="outline" disabled={carregando} onClick={() => importarVarios(falhos)}><RefreshCw /> Tentar falhas novamente</Button>}
               <Button disabled={carregando || pendentes.length === 0} onClick={() => importarVarios(pendentes)}>
@@ -284,6 +286,21 @@ function ImportModal({ existentes, onClose, onDone }: { existentes: Set<string>;
           </>
         )}
       </div>
+    </div>
+  );
+}
+function AnelProgresso({ feitos, total, tempo }: { feitos: number; total: number; tempo: React.ReactNode }) {
+  const r = 34, c = 2 * Math.PI * r, f = total ? feitos / total : 0;
+  return (
+    <div className="mt-4 flex flex-col items-center gap-1" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={feitos} aria-label="Progresso da importação">
+      <div className="relative h-20 w-20">
+        <svg viewBox="0 0 80 80" className="h-20 w-20 -rotate-90">
+          <circle cx="40" cy="40" r={r} fill="none" strokeWidth="6" className="stroke-secondary" />
+          <circle cx="40" cy="40" r={r} fill="none" strokeWidth="6" strokeLinecap="round" className="stroke-primary transition-[stroke-dashoffset] duration-500" strokeDasharray={c} strokeDashoffset={c * (1 - f)} />
+        </svg>
+        <span className="absolute inset-0 grid place-items-center text-sm font-bold tabular-nums">{feitos} de {total}</span>
+      </div>
+      <span className="text-xs text-muted-foreground">{tempo}</span>
     </div>
   );
 }
