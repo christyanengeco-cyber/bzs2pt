@@ -21,6 +21,7 @@ export interface Paragrafo {
   pergunta?: boolean;
   rotulo?: string;
   oculto?: boolean;
+  links?: { inicio: number; fim: number; href: string }[];
 }
 export const CORES = ["#FFFF00", "#86EFAC", "#93C5FD", "#F472B6"] as const;
 export interface Anotacao {

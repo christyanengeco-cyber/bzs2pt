@@ -7,7 +7,7 @@ const PROXIES = [
   (u: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
 ];
 
-async function fetchProxy(url: string): Promise<string> {
+export async function fetchProxy(url: string): Promise<string> {
   let lastErr: unknown;
   try {
     return (await baixarPagina({ data: { url } })).texto;
@@ -178,14 +178,25 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
     (el, i, arr) => arr.indexOf(el) === i && !el.closest("nav, footer, header, figure, .footnote, .jsRelatedPubs"),
   );
   const seen = new Set<Element>();
-  const textos: { texto: string; pergunta: boolean; pid?: string | undefined }[] = [];
+  const textos: { texto: string; pergunta: boolean; pid?: string | undefined; links: { inicio: number; fim: number; href: string }[] }[] = [];
   for (const el of nodes) {
     if (seen.has(el)) continue;
     seen.add(el);
     const t = el.textContent?.replace(/\s+/g, " ").trim() ?? "";
     if (t.length < 3) continue;
     const pergunta = el.classList.contains("qu") || /^\d+[,\s\d-]*\.\s.*\?$/.test(t) || (el.tagName.startsWith("H") && t.endsWith("?"));
-    textos.push({ texto: t, pergunta, pid: el.getAttribute("data-pid") ?? undefined });
+    const links: { inicio: number; fim: number; href: string }[] = [];
+    let pos = 0;
+    el.querySelectorAll("a[href]").forEach((a) => {
+      const at = a.textContent?.replace(/\s+/g, " ").trim() ?? "";
+      const href = a.getAttribute("href") ?? "";
+      if (!at || !href || href.startsWith("#")) return;
+      const i = t.indexOf(at, pos);
+      if (i < 0) return;
+      links.push({ inicio: i, fim: i + at.length, href: abs(href) });
+      pos = i + at.length;
+    });
+    textos.push({ texto: t, pergunta, pid: el.getAttribute("data-pid") ?? undefined, links });
   }
   if (!textos.length) throw new Error("Nenhum parágrafo encontrado nesta página.");
 
@@ -204,6 +215,7 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
       pergunta: t.pergunta,
       oculto: LIXO.test(t.texto),
       timestamp_inicio: ts,
+      ...(t.links.length ? { links: t.links } : {}),
     };
   });
   if (!markers.length) avisos.push("Marcadores de tempo não encontrados — use o botão de relógio em cada parágrafo para sincronizar.");
@@ -217,4 +229,32 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
     paragrafos,
     avisos,
   };
+}
+
+export interface ConteudoReferencia { titulo: string; trechos: string[]; biblia: boolean }
+
+/** Busca só o trecho referenciado (versículos ou início do artigo), sem importar tudo. */
+export async function buscarReferencia(href: string): Promise<ConteudoReferencia> {
+  const html = await fetchProxy(href.split("#")[0] ?? href);
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const limpar = (x: string | null | undefined) => (x ?? "").replace(/\s+/g, " ").trim();
+  const titulo = limpar(doc.querySelector("article h1, h1")?.textContent) || limpar(doc.title);
+  const hash = href.split("#")[1] ?? "";
+  const ids = hash.match(/\d{6,}/g)?.map(Number) ?? [];
+  const biblia = /\/biblia\//i.test(href) || ids.length > 0;
+  if (ids.length) {
+    const ini = ids[0]!, fim = ids[ids.length - 1]!;
+    const trechos: string[] = [];
+    doc.querySelectorAll("[id]").forEach((e) => {
+      const m = e.id.match(/^v(\d+)(?:-\d+)?$/);
+      if (!m) return;
+      const n = Number(m[1]);
+      if (n >= ini && n <= fim) { const t = limpar(e.textContent); if (t && !trechos.includes(t)) trechos.push(t); }
+    });
+    if (trechos.length) return { titulo, trechos, biblia: true };
+  }
+  const root = doc.querySelector("article, #article, main") || doc.body;
+  const trechos = Array.from(root.querySelectorAll("p")).map((p) => limpar(p.textContent)).filter((t) => t.length > 2 && !LIXO.test(t)).slice(0, 12);
+  if (!trechos.length) throw new Error("Não encontramos o conteúdo desta referência.");
+  return { titulo, trechos, biblia };
 }
