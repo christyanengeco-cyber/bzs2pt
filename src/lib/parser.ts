@@ -241,6 +241,7 @@ export async function buscarReferencia(href: string): Promise<ConteudoReferencia
   const titulo = limpar(doc.querySelector("article h1, h1")?.textContent) || limpar(doc.title);
   const hash = href.split("#")[1] ?? "";
   const ids = hash.match(/\d{6,}/g)?.map(Number) ?? [];
+  const numPar = hash.match(/^p(\d+)$/)?.[1];
   const biblia = /\/biblia\//i.test(href) || ids.length > 0;
   if (ids.length) {
     const ini = ids[0]!, fim = ids[ids.length - 1]!;
@@ -254,6 +255,11 @@ export async function buscarReferencia(href: string): Promise<ConteudoReferencia
     if (trechos.length) return { titulo, trechos, biblia: true };
   }
   const root = doc.querySelector("article, #article, main") || doc.body;
+  let alvo: Element | undefined;
+  if (numPar) {
+    alvo = doc.getElementById("p" + numPar) ?? Array.from(root.querySelectorAll("p[data-pid]"))[Number(numPar) - 1];
+    if (alvo) return { titulo, trechos: [limpar(alvo.textContent)], biblia: false };
+  }
   const trechos = Array.from(root.querySelectorAll("p")).map((p) => limpar(p.textContent)).filter((t) => t.length > 2 && !LIXO.test(t)).slice(0, 12);
   if (!trechos.length) throw new Error("Não encontramos o conteúdo desta referência.");
   return { titulo, trechos, biblia };
