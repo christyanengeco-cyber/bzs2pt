@@ -371,20 +371,25 @@ function renderMarcado(texto: string, marcas: Anotacao[], onMarca: (m: Anotacao)
   return out;
 }
 
-function PainelReferencia({ href, texto, onClose }: { href: string; texto: string; onClose: () => void }) {
+function PainelReferencia({ href, texto, pubId, onClose }: { href: string; texto: string; pubId: string; onClose: () => void }) {
   const [dados, setDados] = useState<ConteudoReferencia | null>(null);
   const [erro, setErro] = useState("");
   const [importando, setImportando] = useState(false);
+  const [existente, setExistente] = useState<string | null>(null);
   const navigate = useNavigate();
+  const origem = href.split("#")[0] ?? href;
   useEffect(() => {
     let vivo = true;
     buscarReferencia(href).then((d) => vivo && setDados(d)).catch((e) => vivo && setErro(e instanceof Error ? e.message : String(e)));
+    listarPublicacoes().then((ps) => { const p = ps.find((x) => x.url_origem === origem); if (vivo && p) setExistente(p.id); });
     return () => { vivo = false; };
-  }, [href]);
+  }, [href, origem]);
   async function importar() {
     setImportando(true);
     try {
-      const r = await importarUrl(href.split("#")[0] ?? href);
+      const r = await importarUrl(origem);
+      r.publicacao.tipo = "referencia";
+      r.publicacao.pai_id = pubId;
       await salvarPublicacao(r.publicacao, r.paragrafos);
       onClose();
       navigate({ to: "/estudo/$id", params: { id: r.publicacao.id } });
@@ -405,11 +410,20 @@ function PainelReferencia({ href, texto, onClose }: { href: string; texto: strin
             {dados.trechos.map((t, i) => <p key={i} className="mb-2">{t}</p>)}
           </>}
         </div>
-        {dados && !dados.biblia && (
-          <div className="border-t p-3">
-            <Button className="w-full" disabled={importando} onClick={importar}>
-              {importando ? <Loader2 className="animate-spin" /> : <BookOpen />} Importar como estudo
-            </Button>
+        {dados && (
+          <div className="flex gap-2 border-t p-3">
+            {existente ? (
+              <Button className="flex-1" onClick={() => navigate({ to: "/estudo/$id", params: { id: existente } })}>
+                <BookOpen /> Abrir estudo
+              </Button>
+            ) : !dados.biblia && (
+              <Button className="flex-1" disabled={importando} onClick={importar}>
+                {importando ? <Loader2 className="animate-spin" /> : <BookOpen />} Importar como estudo
+              </Button>
+            )}
+            <a href={href} target="_blank" rel="noreferrer" className="flex flex-1 items-center justify-center gap-2 rounded-md border bg-secondary px-4 py-2 text-sm font-bold">
+              <ExternalLink className="h-4 w-4" /> Abrir no jw.org
+            </a>
           </div>
         )}
       </div>
