@@ -337,10 +337,10 @@ function Leitor() {
         </div>
       )}
 
-      {ref && <PainelReferencia href={ref.href} texto={ref.texto} onClose={() => setRef(null)} />}
+      {ref && <PainelReferencia href={ref.href} texto={ref.texto} pubId={id} onClose={() => setRef(null)} />}
 
       {sel && (
-        <div className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border bg-popover p-2 shadow-2xl">
+        <div style={{ left: sel.x, top: sel.y }} className="fixed z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border bg-popover p-2 shadow-2xl">
           {CORES.map((c) => (
             <button key={c} aria-label={`Marcar ${c}`} onPointerDown={(e) => { e.preventDefault(); marcar(c); }} className="h-9 w-9 rounded-full border-2 border-background" style={{ background: c }} />
           ))}
