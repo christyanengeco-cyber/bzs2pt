@@ -1,6 +1,6 @@
 import { openDB, type IDBPDatabase } from "idb";
 
-export type TipoPub = "sentinela" | "apostila";
+export type TipoPub = "sentinela" | "apostila" | "referencia";
 export interface Publicacao {
   id: string;
   tipo: TipoPub;
@@ -10,6 +10,7 @@ export interface Publicacao {
   semana_fim?: string;
   url_origem: string;
   video_url: string;
+  pai_id?: string;
   criado_em: number;
 }
 export interface Paragrafo {
@@ -70,12 +71,15 @@ export async function atualizarPublicacao(p: Publicacao) {
 }
 export async function excluirPublicacao(id: string) {
   const d = await db();
+  const filhos = (await d.getAll("publicacoes")).filter((p) => (p as Publicacao).pai_id === id);
   const tx = d.transaction(["publicacoes", "paragrafos", "anotacoes"], "readwrite");
   await tx.objectStore("publicacoes").delete(id);
-  for (const s of ["paragrafos", "anotacoes"] as const) {
-    const keys = await tx.objectStore(s).index("pub").getAllKeys(id);
-    for (const k of keys) await tx.objectStore(s).delete(k);
-  }
+  for (const f of filhos) await tx.objectStore("publicacoes").delete(f.id);
+  for (const pid of [id, ...filhos.map((f) => f.id)])
+    for (const s of ["paragrafos", "anotacoes"] as const) {
+      const keys = await tx.objectStore(s).index("pub").getAllKeys(pid);
+      for (const k of keys) await tx.objectStore(s).delete(k);
+    }
   await tx.done;
 }
 export async function listarParagrafos(pubId: string): Promise<Paragrafo[]> {
