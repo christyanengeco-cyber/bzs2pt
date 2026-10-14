@@ -381,9 +381,27 @@ function PainelReferencia({ href, texto, pubId, onClose }: { href: string; texto
   useEffect(() => {
     let vivo = true;
     buscarReferencia(href).then((d) => vivo && setDados(d)).catch((e) => vivo && setErro(e instanceof Error ? e.message : String(e)));
-    listarPublicacoes().then((ps) => { const p = ps.find((x) => x.url_origem === origem); if (vivo && p) setExistente(p.id); });
-    return () => { vivo = false; };
-  }, [href, origem]);
+    listarPublicacoes().then(async (ps) => {
+      const p = ps.find((x) => x.url_origem === origem);
+      if (!vivo) return;
+      if (p) { setExistente(p.id); const pr = await listarParagrafos(p.id); if (vivo && p.video_url) setMini({ pub: p, paras: pr }); return; }
+      if (/\/biblia\//i.test(href)) return;
+      try {
+        const r = await importarUrl(origem);
+        r.publicacao.tipo = "referencia"; r.publicacao.pai_id = pubId;
+        await salvarPublicacao(r.publicacao, r.paragrafos);
+        if (vivo) { setExistente(r.publicacao.id); if (r.publicacao.video_url) setMini({ pub: r.publicacao, paras: r.paragrafos }); }
+      } catch { /* só texto */ }
+    });
+    history.pushState({ popup: 1 }, "");
+    const voltar = () => onClose();
+    addEventListener("popstate", voltar);
+    return () => { vivo = false; removeEventListener("popstate", voltar); };
+  }, [href, origem]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [mini, setMini] = useState<{ pub: Publicacao; paras: Paragrafo[] } | null>(null);
+  const vRef = useRef<HTMLVideoElement>(null);
+  const [tMini, setTMini] = useState(0);
+  const fechar = () => history.back();
   async function importar() {
     setImportando(true);
     try {
@@ -396,16 +414,27 @@ function PainelReferencia({ href, texto, pubId, onClose }: { href: string; texto
     } catch (e) { setErro(e instanceof Error ? e.message : String(e)); setImportando(false); }
   }
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/60" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label={texto} className="flex max-h-[70dvh] w-full max-w-2xl flex-col rounded-t-2xl border bg-card" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 sm:p-8" onClick={fechar}>
+      <div role="dialog" aria-modal="true" aria-label={texto} className="flex max-h-[85dvh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 border-b px-4 py-3">
           <p className="min-w-0 flex-1 truncate font-bold text-reference">{texto}</p>
-          <button onClick={onClose} aria-label="Fechar" className="grid h-8 w-8 place-items-center"><X className="h-5 w-5" /></button>
+          <button onClick={fechar} aria-label="Fechar" className="grid h-8 w-8 place-items-center"><X className="h-5 w-5" /></button>
         </div>
+        {mini && <video ref={vRef} src={mini.pub.video_url} controls playsInline className="aspect-video w-full bg-background" onTimeUpdate={(e) => setTMini(e.currentTarget.currentTime)} />}
+        {dados && !dados.biblia && !mini && !existente && !erro && <p className="flex items-center gap-2 border-b px-4 py-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Buscando vídeo em Libras…</p>}
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[1.05rem] leading-relaxed">
           {!dados && !erro && <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Buscando…</p>}
           {erro && <p className="text-sm text-destructive">{erro}</p>}
-          {dados && <>
+          {mini ? <>
+            <p className="mb-2 font-bold">{mini.pub.titulo}</p>
+            {mini.paras.filter((p) => !p.oculto).map((p, i, arr) => {
+              const ativoP = tMini >= p.timestamp_inicio && tMini < (arr[i + 1]?.timestamp_inicio ?? Infinity);
+              const alvo = !dados?.biblia && dados?.trechos.length === 1 && dados.trechos[0] === p.texto_portugues;
+              return <p key={p.id} ref={alvo ? (el) => { if (el && vRef.current && vRef.current.currentTime === 0) { el.scrollIntoView({ block: "center" }); vRef.current.currentTime = p.timestamp_inicio; } } : undefined}
+                onClick={() => { if (vRef.current) { vRef.current.currentTime = p.timestamp_inicio; vRef.current.play(); } }}
+                className={`mb-2 cursor-pointer rounded px-1 ${p.pergunta ? "text-sm text-section" : ""} ${ativoP ? "bg-accent/40" : ""} ${alvo ? "ring-1 ring-reference" : ""}`}>{p.texto_portugues}</p>;
+            })}
+          </> : dados && <>
             {!dados.biblia && dados.titulo && <p className="mb-2 font-bold">{dados.titulo}</p>}
             {dados.trechos.map((t, i) => <p key={i} className="mb-2">{t}</p>)}
           </>}
