@@ -1,8 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Clock, MessageCircle, Pause, Play, Eraser, Video, EyeOff, Eye, Trash2, X, Pencil, Maximize, Minimize, RotateCcw, RotateCw, Loader2, BookOpen } from "lucide-react";
+import { ArrowLeft, Clock, MessageCircle, Pause, Play, Eraser, Video, EyeOff, Eye, Trash2, X, Pencil, Maximize, Minimize, RotateCcw, RotateCw, Loader2, BookOpen, ExternalLink } from "lucide-react";
 import { LIXO, buscarReferencia, importarUrl, type ConteudoReferencia } from "@/lib/parser";
-import { salvarPublicacao } from "@/lib/db";
+import { salvarPublicacao, listarPublicacoes } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
@@ -39,7 +39,7 @@ function Leitor() {
   const [dur, setDur] = useState(0);
   const [vel, setVel] = useState(1);
   const [ativo, setAtivo] = useState<string | null>(null);
-  const [sel, setSel] = useState<{ pid: string; inicio: number; fim: number; trecho: string } | null>(null);
+  const [sel, setSel] = useState<{ pid: string; inicio: number; fim: number; trecho: string; x: number; y: number } | null>(null);
   const [editMarca, setEditMarca] = useState<Anotacao | null>(null);
   const [modoTempo, setModoTempo] = useState(false);
   const [painelOcultos, setPainelOcultos] = useState(false);
@@ -53,7 +53,7 @@ function Leitor() {
   const ctrlTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const cutucar = () => {
     setControles(true); clearTimeout(ctrlTimer.current);
-    ctrlTimer.current = setTimeout(() => { if (video.current && !video.current.paused) setControles(false); }, 500);
+    ctrlTimer.current = setTimeout(() => { if (video.current && !video.current.paused) setControles(false); }, 2500);
   };
   useEffect(() => { if (!tocando) { setControles(true); clearTimeout(ctrlTimer.current); } else cutucar(); }, [tocando]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -167,7 +167,11 @@ function Leitor() {
     pre.selectNodeContents(el); pre.setEnd(r.startContainer, r.startOffset);
     const inicio = pre.toString().length;
     const trecho = r.toString();
-    if (trecho.trim()) setSel({ pid, inicio, fim: inicio + trecho.length, trecho });
+    if (!trecho.trim()) return;
+    const rect = r.getBoundingClientRect();
+    const x = Math.min(window.innerWidth - 120, Math.max(120, rect.left + rect.width / 2));
+    const y = rect.top > 100 ? rect.top - 58 : rect.bottom + 10;
+    setSel({ pid, inicio, fim: inicio + trecho.length, trecho, x, y });
   }
 
   async function marcar(cor: string) {
@@ -235,7 +239,7 @@ function Leitor() {
           </div>
         )}
         {hud && (
-          <div aria-live="polite" className="pointer-events-none absolute bottom-14 right-3 z-10 rounded-md bg-background/70 px-2 py-0.5 text-xs font-bold tabular-nums backdrop-blur">
+          <div aria-live="polite" className="pointer-events-none absolute left-3 top-14 z-10 rounded-md bg-background/70 px-2 py-0.5 text-xs font-bold tabular-nums backdrop-blur">
             {hud}
           </div>
         )}
@@ -333,10 +337,10 @@ function Leitor() {
         </div>
       )}
 
-      {ref && <PainelReferencia href={ref.href} texto={ref.texto} onClose={() => setRef(null)} />}
+      {ref && <PainelReferencia href={ref.href} texto={ref.texto} pubId={id} onClose={() => setRef(null)} />}
 
       {sel && (
-        <div className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border bg-popover p-2 shadow-2xl">
+        <div style={{ left: sel.x, top: sel.y }} className="fixed z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border bg-popover p-2 shadow-2xl">
           {CORES.map((c) => (
             <button key={c} aria-label={`Marcar ${c}`} onPointerDown={(e) => { e.preventDefault(); marcar(c); }} className="h-9 w-9 rounded-full border-2 border-background" style={{ background: c }} />
           ))}
@@ -367,20 +371,25 @@ function renderMarcado(texto: string, marcas: Anotacao[], onMarca: (m: Anotacao)
   return out;
 }
 
-function PainelReferencia({ href, texto, onClose }: { href: string; texto: string; onClose: () => void }) {
+function PainelReferencia({ href, texto, pubId, onClose }: { href: string; texto: string; pubId: string; onClose: () => void }) {
   const [dados, setDados] = useState<ConteudoReferencia | null>(null);
   const [erro, setErro] = useState("");
   const [importando, setImportando] = useState(false);
+  const [existente, setExistente] = useState<string | null>(null);
   const navigate = useNavigate();
+  const origem = href.split("#")[0] ?? href;
   useEffect(() => {
     let vivo = true;
     buscarReferencia(href).then((d) => vivo && setDados(d)).catch((e) => vivo && setErro(e instanceof Error ? e.message : String(e)));
+    listarPublicacoes().then((ps) => { const p = ps.find((x) => x.url_origem === origem); if (vivo && p) setExistente(p.id); });
     return () => { vivo = false; };
-  }, [href]);
+  }, [href, origem]);
   async function importar() {
     setImportando(true);
     try {
-      const r = await importarUrl(href.split("#")[0] ?? href);
+      const r = await importarUrl(origem);
+      r.publicacao.tipo = "referencia";
+      r.publicacao.pai_id = pubId;
       await salvarPublicacao(r.publicacao, r.paragrafos);
       onClose();
       navigate({ to: "/estudo/$id", params: { id: r.publicacao.id } });
@@ -401,11 +410,20 @@ function PainelReferencia({ href, texto, onClose }: { href: string; texto: strin
             {dados.trechos.map((t, i) => <p key={i} className="mb-2">{t}</p>)}
           </>}
         </div>
-        {dados && !dados.biblia && (
-          <div className="border-t p-3">
-            <Button className="w-full" disabled={importando} onClick={importar}>
-              {importando ? <Loader2 className="animate-spin" /> : <BookOpen />} Importar como estudo
-            </Button>
+        {dados && (
+          <div className="flex gap-2 border-t p-3">
+            {existente ? (
+              <Button className="flex-1" onClick={() => navigate({ to: "/estudo/$id", params: { id: existente } })}>
+                <BookOpen /> Abrir estudo
+              </Button>
+            ) : !dados.biblia && (
+              <Button className="flex-1" disabled={importando} onClick={importar}>
+                {importando ? <Loader2 className="animate-spin" /> : <BookOpen />} Importar como estudo
+              </Button>
+            )}
+            <a href={href} target="_blank" rel="noreferrer" className="flex flex-1 items-center justify-center gap-2 rounded-md border bg-secondary px-4 py-2 text-sm font-bold">
+              <ExternalLink className="h-4 w-4" /> Abrir no jw.org
+            </a>
           </div>
         )}
       </div>
