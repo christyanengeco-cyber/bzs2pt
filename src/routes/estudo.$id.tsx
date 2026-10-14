@@ -39,7 +39,7 @@ function Leitor() {
   const [dur, setDur] = useState(0);
   const [vel, setVel] = useState(1);
   const [ativo, setAtivo] = useState<string | null>(null);
-  const [sel, setSel] = useState<{ pid: string; inicio: number; fim: number; trecho: string } | null>(null);
+  const [sel, setSel] = useState<{ pid: string; inicio: number; fim: number; trecho: string; x: number; y: number } | null>(null);
   const [editMarca, setEditMarca] = useState<Anotacao | null>(null);
   const [modoTempo, setModoTempo] = useState(false);
   const [painelOcultos, setPainelOcultos] = useState(false);
@@ -53,7 +53,7 @@ function Leitor() {
   const ctrlTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const cutucar = () => {
     setControles(true); clearTimeout(ctrlTimer.current);
-    ctrlTimer.current = setTimeout(() => { if (video.current && !video.current.paused) setControles(false); }, 500);
+    ctrlTimer.current = setTimeout(() => { if (video.current && !video.current.paused) setControles(false); }, 2500);
   };
   useEffect(() => { if (!tocando) { setControles(true); clearTimeout(ctrlTimer.current); } else cutucar(); }, [tocando]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -167,7 +167,11 @@ function Leitor() {
     pre.selectNodeContents(el); pre.setEnd(r.startContainer, r.startOffset);
     const inicio = pre.toString().length;
     const trecho = r.toString();
-    if (trecho.trim()) setSel({ pid, inicio, fim: inicio + trecho.length, trecho });
+    if (!trecho.trim()) return;
+    const rect = r.getBoundingClientRect();
+    const x = Math.min(window.innerWidth - 120, Math.max(120, rect.left + rect.width / 2));
+    const y = rect.top > 100 ? rect.top - 58 : rect.bottom + 10;
+    setSel({ pid, inicio, fim: inicio + trecho.length, trecho, x, y });
   }
 
   async function marcar(cor: string) {
@@ -235,7 +239,7 @@ function Leitor() {
           </div>
         )}
         {hud && (
-          <div aria-live="polite" className="pointer-events-none absolute bottom-14 right-3 z-10 rounded-md bg-background/70 px-2 py-0.5 text-xs font-bold tabular-nums backdrop-blur">
+          <div aria-live="polite" className="pointer-events-none absolute left-3 top-14 z-10 rounded-md bg-background/70 px-2 py-0.5 text-xs font-bold tabular-nums backdrop-blur">
             {hud}
           </div>
         )}
