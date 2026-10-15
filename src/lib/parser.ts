@@ -264,3 +264,27 @@ export async function buscarReferencia(href: string): Promise<ConteudoReferencia
   if (!trechos.length) throw new Error("Não encontramos o conteúdo desta referência.");
   return { titulo, trechos, biblia };
 }
+
+/** Estudo bíblico de congregação: encontra a lição em Libras pelo código da publicação. */
+export async function resolverEstudoLivro(code: string, n: number): Promise<string> {
+  const base = `https://www.jw.org/finder?wtlocale=BZS&pub=${encodeURIComponent(code)}`;
+  const html = await fetchProxy(base);
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const re = new RegExp(`(^|\\b(li[çc][aã]o|cap[ií]tulo|cap\\.?)\\s*)0*${n}\\b`, "i");
+  for (const a of Array.from(doc.querySelectorAll("a[href]"))) {
+    const t = a.textContent?.replace(/\s+/g, " ").trim() ?? "";
+    const href = a.getAttribute("href") ?? "";
+    if (!href.includes("/bzs/") || !re.test(t)) continue;
+    return new URL(href, "https://www.jw.org").href;
+  }
+  throw new Error("Lição não encontrada no sumário em Libras.");
+}
+
+const LIVRO_RE = /\b(lff|lfb|bt|jy|rr|ia|lv|lr|bhs|cl|scl|wp|ld|lmd|jl)\s+(?:li[çc][aã]o|cap(?:[ií]tulo|\.)?|hist[óo]ria)?\s*(\d+)/i;
+/** Cria link interno para o estudo de livro no parágrafo do Estudo bíblico de congregação. */
+export function linkEstudoLivro(texto: string) {
+  if (!/estudo b[íi]blico de congrega/i.test(texto)) return null;
+  const m = texto.match(LIVRO_RE);
+  if (!m || m.index == null) return null;
+  return { inicio: m.index, fim: m.index + m[0].length, href: `livro:${m[1]!.toLowerCase()}:${m[2]}` };
+}
