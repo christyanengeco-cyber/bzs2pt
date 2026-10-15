@@ -123,7 +123,7 @@ function Biblioteca() {
           </div>
         ) : (
           <>
-            {!atual && semanaSelecionada && (
+            {!atual && semanaSelecionada && !selecionadas[aba] && !semanas.some((g) => g.intervalo && g.intervalo.inicio <= hojeIso() && g.intervalo.fim >= hojeIso()) && (
               <p className="mb-3 flex items-center gap-2 text-xs text-muted-foreground"><Clock3 className="h-3.5 w-3.5" /> A semana atual ainda não foi importada. Mostrando a anterior mais recente.</p>
             )}
             <ul className="space-y-3">
