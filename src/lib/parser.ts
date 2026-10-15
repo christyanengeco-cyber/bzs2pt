@@ -286,7 +286,7 @@ export async function resolverEstudoLivro(code: string, n: number): Promise<stri
   throw new Error("Lição não encontrada no sumário em Libras.");
 }
 
-const LIVRO_RE = /\b(lff|lfb|bt|jy|rr|ia|lv|lr|bhs|cl|scl|wp|ld|lmd|jl)\s+(?:li[çc][aã]o|cap(?:[ií]tulo|\.)?|hist[óo]ria)?\s*(\d+)/i;
+const LIVRO_RE = /\bconst LIVRO_RE = /\b(wcg|lff|lfb|bt|jy|rr|ia|lv|lr|bhs|cl|scl|wp|ld|lmd|jl)\s+(?:li[çc][aã]o|cap(?:[ií]tulo|\.)?|hist[óo]ria)?\s*(\d+)/i;jy|rr|ia|lv|lr|bhs|cl|scl|wp|ld|lmd|jl)\s+(?:li[çc][aã]o|cap(?:[ií]tulo|\.)?|hist[óo]ria)?\s*(\d+)/i;
 /** Cria link interno para o estudo de livro no parágrafo do Estudo bíblico de congregação. */
 export function linkEstudoLivro(texto: string) {
   if (!/estudo b[íi]blico de congrega/i.test(texto)) return null;
