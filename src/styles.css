@@ -103,8 +103,8 @@
   --hl-ink: oklch(0.96 0.003 285);
 }
 
-:root { --section: #347c80; --reference: #286da8; --user-accent: #76528f; --swatch-ink: #151515; }
-.dark { --section: #79b6b7; --reference: #86bce5; --user-accent: #a78bca; }
+:root { --sec-tesouros: #3c6f80; --sec-ministerio: #b8860b; --sec-vida: #9b2c2c; --section: #347c80; --reference: #286da8; --user-accent: #76528f; --swatch-ink: #151515; }
+.dark { --sec-tesouros: #6fa8b8; --sec-ministerio: #d9a43c; --sec-vida: #d0605a; --section: #79b6b7; --reference: #86bce5; --user-accent: #a78bca; }
 :root[data-accent="lilas"] { --user-accent: #76528f; }
 .dark[data-accent="lilas"] { --user-accent: #a78bca; }
 [data-swatch="lilas"] { --swatch-color: #a78bca; }

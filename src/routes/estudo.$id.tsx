@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Clock, MessageCircle, Pause, Play, Eraser, Video, EyeOff, Eye, Trash2, X, Pencil, Maximize, Minimize, RotateCcw, RotateCw, Loader2, BookOpen, ExternalLink } from "lucide-react";
-import { LIXO, buscarReferencia, importarUrl, type ConteudoReferencia } from "@/lib/parser";
+import { LIXO, buscarReferencia, linkEstudoLivro, resolverEstudoLivro, importarUrl, type ConteudoReferencia } from "@/lib/parser";
 import { salvarPublicacao, listarPublicacoes } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -84,6 +84,16 @@ function Leitor() {
   const estaOculto = (p: Paragrafo) => p.oculto ?? LIXO.test(p.texto_portugues);
   const visiveis = paras.filter((p) => !estaOculto(p));
   const ocultos = paras.filter(estaOculto);
+  const secoes = (() => {
+    let c: string | undefined;
+    return visiveis.map((p) => {
+      const t = p.texto_portugues.toUpperCase();
+      if (/TESOUROS DA PALAVRA/.test(t)) c = "var(--sec-tesouros)";
+      else if (/FA[ÇC]A SEU MELHOR/.test(t)) c = "var(--sec-ministerio)";
+      else if (/NOSSA VIDA CRIST/.test(t)) c = "var(--sec-vida)";
+      return c;
+    });
+  })();
   async function definirOculto(p: Paragrafo, oculto: boolean) {
     const np = { ...p, oculto };
     await atualizarParagrafo(np);
@@ -276,8 +286,9 @@ function Leitor() {
               Modo de edição ligado: o relógio em cada trecho grava o tempo atual do vídeo e o olho oculta o trecho. Toque no lápis do topo para sair.
             </p>
           )}
-          {visiveis.map((p) => (
+          {visiveis.map((p, i) => (
             <ParagrafoView
+              cor={pub.tipo === "apostila" ? secoes[i] : undefined}
               key={p.id}
               p={p}
               ativo={ativo === p.id}
@@ -285,7 +296,11 @@ function Leitor() {
               notas={notas.filter((n) => n.paragrafo_id === p.id)}
               temVideo={!!pub.video_url}
               modoTempo={modoTempo}
-              onRef={(href, texto) => setRef({ href, texto })}
+              onRef={(href, texto) => {
+                if (!href.startsWith("livro:")) return setRef({ href, texto });
+                const [, code, n] = href.split(":");
+                resolverEstudoLivro(code!, Number(n)).then((u) => setRef({ href: u, texto })).catch((e) => alert(e instanceof Error ? e.message : "Falha ao buscar a lição"));
+              }}
               onTap={() => { if (sel || Date.now() - ultimaSelecao.current < 600 || window.getSelection()?.toString()) return; setAtivo(p.id); if (pub.video_url) { trava.current = p.timestamp_inicio; seekTo(p.timestamp_inicio); } }}
               onOcultar={() => definirOculto(p, true)}
               onMarca={(m) => { setSel(null); setEditMarca(m); }}
@@ -460,8 +475,8 @@ function PainelReferencia({ href, texto, pubId, onClose }: { href: string; texto
   );
 }
 
-function ParagrafoView({ p, ativo, acompanhando, notas, temVideo, modoTempo, onRef, onTap, onOcultar, onMarca, onSelect, onSync, onNotas }: {
-  p: Paragrafo; ativo: boolean; acompanhando: boolean; notas: Anotacao[]; temVideo: boolean; modoTempo: boolean;
+function ParagrafoView({ cor, p, ativo, acompanhando, notas, temVideo, modoTempo, onRef, onTap, onOcultar, onMarca, onSelect, onSync, onNotas }: {
+  cor?: string | undefined; p: Paragrafo; ativo: boolean; acompanhando: boolean; notas: Anotacao[]; temVideo: boolean; modoTempo: boolean;
   onRef: (href: string, t: string) => void; onTap: () => void; onOcultar: () => void; onMarca: (m: Anotacao) => void; onSelect: (el: HTMLElement) => void; onSync: () => void;
   onNotas: React.Dispatch<React.SetStateAction<Anotacao[]>>;
 }) {
@@ -495,6 +510,10 @@ function ParagrafoView({ p, ativo, acompanhando, notas, temVideo, modoTempo, onR
   }
 
   const temDestaque = notas.some((n) => n.tipo === "destaque");
+  const livro = linkEstudoLivro(p.texto_portugues);
+  const links = livro && !(p.links ?? []).some((l) => l.inicio < livro.fim && l.fim > livro.inicio) ? [...(p.links ?? []), livro] : p.links;
+  const titulo = cor && (p.pergunta || /^\d+\.\s/.test(p.texto_portugues) || (p.texto_portugues.length < 60 && p.texto_portugues === p.texto_portugues.toUpperCase()));
+  if (p.imagem) return <img src={p.imagem} alt="" loading="lazy" className="mb-3 w-full rounded-lg" />;
 
   return (
     <div aria-current={ativo ? "true" : undefined} className={`mb-2 border-l-2 px-3 py-2 transition ${ativo ? "border-primary bg-selection" : "border-transparent"}`}>
@@ -503,9 +522,10 @@ function ParagrafoView({ p, ativo, acompanhando, notas, temVideo, modoTempo, onR
         onClick={() => { if (!window.getSelection()?.toString()) onTap(); }}
         data-par={p.id}
         onMouseUp={() => ref.current && onSelect(ref.current)}
-         className={`cursor-pointer select-text leading-relaxed ${p.pergunta ? "text-base font-bold text-section" : "text-[1.1rem]"}`}
+         style={titulo ? { color: cor } : undefined}
+         className={`cursor-pointer select-text leading-relaxed ${titulo ? "font-bold" : p.pergunta ? "text-base font-bold text-section" : "text-[1.1rem]"}`}
       >
-        {renderMarcado(p.texto_portugues, notas, onMarca, p.links, onRef)}
+        {renderMarcado(p.texto_portugues, notas, onMarca, links, onRef)}
       </p>
       <div className="mt-1 flex items-center gap-1 text-muted-foreground">
         {temVideo && (

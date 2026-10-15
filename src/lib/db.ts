@@ -21,6 +21,7 @@ export interface Paragrafo {
   timestamp_inicio: number;
   pergunta?: boolean;
   rotulo?: string;
+  imagem?: string;
   oculto?: boolean;
   links?: { inicio: number; fim: number; href: string }[];
 }

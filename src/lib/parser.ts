@@ -174,14 +174,19 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
 
   // 4. parágrafos e perguntas
   const root = doc.querySelector("article, #article, .docSubContent, main") || doc.body;
-  const nodes = Array.from(root.querySelectorAll("p[data-pid], p.qu, p.p, p.sb, h2, h3, p")).filter(
-    (el, i, arr) => arr.indexOf(el) === i && !el.closest("nav, footer, header, figure, .footnote, .jsRelatedPubs"),
+  const nodes = Array.from(root.querySelectorAll("p[data-pid], p.qu, p.p, p.sb, h2, h3, p, figure img")).filter(
+    (el, i, arr) => arr.indexOf(el) === i && !el.closest(el.tagName === "IMG" ? "nav, footer, header" : "nav, footer, header, figure, .footnote, .jsRelatedPubs"),
   );
   const seen = new Set<Element>();
-  const textos: { texto: string; pergunta: boolean; pid?: string | undefined; links: { inicio: number; fim: number; href: string }[] }[] = [];
+  const textos: { texto: string; imagem?: string; pergunta: boolean; pid?: string | undefined; links: { inicio: number; fim: number; href: string }[] }[] = [];
   for (const el of nodes) {
     if (seen.has(el)) continue;
     seen.add(el);
+    if (el.tagName === "IMG") {
+      const src = el.getAttribute("data-img-size-lg") || el.getAttribute("data-img-size-md") || el.getAttribute("src");
+      if (src && !src.startsWith("data:")) textos.push({ texto: "", imagem: abs(src), pergunta: false, links: [] });
+      continue;
+    }
     const t = el.textContent?.replace(/\s+/g, " ").trim() ?? "";
     if (t.length < 3) continue;
     const pergunta = el.classList.contains("qu") || /^\d+[,\s\d-]*\.\s.*\?$/.test(t) || (el.tagName.startsWith("H") && t.endsWith("?"));
@@ -198,7 +203,7 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
     });
     textos.push({ texto: t, pergunta, pid: el.getAttribute("data-pid") ?? undefined, links });
   }
-  if (!textos.length) throw new Error("Nenhum parágrafo encontrado nesta página.");
+  if (!textos.some((t) => t.texto)) throw new Error("Nenhum parágrafo encontrado nesta página.");
 
   const pubId = uid();
   const usaPid = textos.some((t) => t.pid && markers.some((m) => m.label === t.pid));
@@ -216,6 +221,7 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
       oculto: LIXO.test(t.texto),
       timestamp_inicio: ts,
       ...(t.links.length ? { links: t.links } : {}),
+      ...(t.imagem ? { imagem: t.imagem } : {}),
     };
   });
   if (!markers.length) avisos.push("Marcadores de tempo não encontrados — use o botão de relógio em cada parágrafo para sincronizar.");
@@ -263,4 +269,28 @@ export async function buscarReferencia(href: string): Promise<ConteudoReferencia
   const trechos = Array.from(root.querySelectorAll("p")).map((p) => limpar(p.textContent)).filter((t) => t.length > 2 && !LIXO.test(t)).slice(0, 12);
   if (!trechos.length) throw new Error("Não encontramos o conteúdo desta referência.");
   return { titulo, trechos, biblia };
+}
+
+/** Estudo bíblico de congregação: encontra a lição em Libras pelo código da publicação. */
+export async function resolverEstudoLivro(code: string, n: number): Promise<string> {
+  const base = `https://www.jw.org/finder?wtlocale=BZS&pub=${encodeURIComponent(code)}`;
+  const html = await fetchProxy(base);
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const re = new RegExp(`(^|\\b(li[çc][aã]o|cap[ií]tulo|cap\\.?)\\s*)0*${n}\\b`, "i");
+  for (const a of Array.from(doc.querySelectorAll("a[href]"))) {
+    const t = a.textContent?.replace(/\s+/g, " ").trim() ?? "";
+    const href = a.getAttribute("href") ?? "";
+    if (!href.includes("/bzs/") || !re.test(t)) continue;
+    return new URL(href, "https://www.jw.org").href;
+  }
+  throw new Error("Lição não encontrada no sumário em Libras.");
+}
+
+const LIVRO_RE = /\b(lff|lfb|bt|jy|rr|ia|lv|lr|bhs|cl|scl|wp|ld|lmd|jl)\s+(?:li[çc][aã]o|cap(?:[ií]tulo|\.)?|hist[óo]ria)?\s*(\d+)/i;
+/** Cria link interno para o estudo de livro no parágrafo do Estudo bíblico de congregação. */
+export function linkEstudoLivro(texto: string) {
+  if (!/estudo b[íi]blico de congrega/i.test(texto)) return null;
+  const m = texto.match(LIVRO_RE);
+  if (!m || m.index == null) return null;
+  return { inicio: m.index, fim: m.index + m[0].length, href: `livro:${m[1]!.toLowerCase()}:${m[2]}` };
 }
