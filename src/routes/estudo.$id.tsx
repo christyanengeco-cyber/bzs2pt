@@ -289,6 +289,7 @@ function Leitor() {
           {visiveis.map((p, i) => (
             <ParagrafoView
               cor={pub.tipo === "apostila" ? secoes[i] : undefined}
+              anterior={pub.tipo === "apostila" ? (visiveis[i - 1]?.texto_portugues ?? "") : ""}
               key={p.id}
               p={p}
               ativo={ativo === p.id}
@@ -510,7 +511,7 @@ function ParagrafoView({ cor, p, ativo, acompanhando, notas, temVideo, modoTempo
   }
 
   const temDestaque = notas.some((n) => n.tipo === "destaque");
-  const livro = linkEstudoLivro(p.texto_portugues);
+  const livro = linkEstudoLivro(p.texto_portugues, anterior);
   const links = livro && !(p.links ?? []).some((l) => l.inicio < livro.fim && l.fim > livro.inicio) ? [...(p.links ?? []), livro] : p.links;
   const titulo = cor && (p.pergunta || /^\d+\.\s/.test(p.texto_portugues) || (p.texto_portugues.length < 60 && p.texto_portugues === p.texto_portugues.toUpperCase()));
   if (p.imagem) return <img src={p.imagem} alt="" loading="lazy" className="mb-3 w-full rounded-lg" />;
