@@ -280,7 +280,7 @@ function Leitor() {
 
       {/* TEXTO 65% */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-2xl px-4 pb-24 pt-5">
+        <div className="mx-auto max-w-2xl px-4 pb-24 pt-5" style={{ fontSize: "calc(1rem * var(--escala-texto, 1))" }}>
           <p className="text-xs font-bold uppercase text-section">{pub.semana}</p>
           <h1 className="mb-5 text-2xl font-bold leading-tight">{pub.titulo}</h1>
           {modoTempo && (
@@ -449,7 +449,7 @@ function PainelReferencia({ href, texto, pubId, onClose }: { href: string; texto
         </div>
         {mini && <video ref={vRef} src={mini.pub.video_url} controls playsInline className="aspect-video w-full bg-background" onTimeUpdate={(e) => setTMini(e.currentTarget.currentTime)} />}
         {dados && !dados.biblia && !mini && !existente && !erro && <p className="flex items-center gap-2 border-b px-4 py-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Buscando vídeo em Libras…</p>}
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[1.05rem] leading-relaxed">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[1.05rem] leading-relaxed" style={{ fontSize: "calc(1.05rem * var(--escala-texto, 1))" }}>
           {!dados && !erro && <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Buscando…</p>}
           {erro && <p className="text-sm text-destructive">{erro}</p>}
           {mini ? <>
@@ -535,7 +535,7 @@ function ParagrafoView({ cor, anterior = "", p, ativo, acompanhando, notas, temV
         data-par={p.id}
         onMouseUp={() => ref.current && onSelect(ref.current)}
          style={titulo ? { color: cor } : undefined}
-         className={`cursor-pointer select-text leading-relaxed ${titulo ? "font-bold" : p.pergunta ? "text-base font-bold text-section" : "text-[1.1rem]"}`}
+         className={`cursor-pointer select-text leading-relaxed ${titulo ? "font-bold" : p.pergunta ? "text-[1em] font-bold text-section" : "text-[1.1em]"}`}
       >
         {renderMarcado(p.texto_portugues, notas, onMarca, links, onRef)}
       </p>
