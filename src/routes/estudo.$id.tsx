@@ -31,6 +31,7 @@ const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).p
 function Leitor() {
   const { id } = Route.useParams();
   const [pub, setPub] = useState<Publicacao | null>(null);
+  const navigateLivro = useNavigate();
   const [paras, setParas] = useState<Paragrafo[]>([]);
   const [notas, setNotas] = useState<Anotacao[]>([]);
   const video = useRef<HTMLVideoElement>(null);
