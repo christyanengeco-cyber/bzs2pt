@@ -288,8 +288,8 @@ export async function resolverEstudoLivro(code: string, n: number): Promise<stri
 
 const LIVRO_RE = /\b(wcg|lff|lfb|bt|jy|rr|ia|lv|lr|bhs|cl|scl|wp|ld|lmd|jl)\s+(?:li[çc][aã]o|cap(?:[ií]tulo|\.)?|hist[óo]ria)?\s*(\d+)/i;
 /** Cria link interno para o estudo de livro no parágrafo do Estudo bíblico de congregação. */
-export function linkEstudoLivro(texto: string) {
-  if (!/estudo b[íi]blico de congrega/i.test(texto)) return null;
+export function linkEstudoLivro(texto: string, anterior = "") {
+  if (!/estudo b[íi]blico de congrega/i.test(texto + " " + anterior)) return null;
   const m = texto.match(LIVRO_RE);
   if (!m || m.index == null) return null;
   return { inicio: m.index, fim: m.index + m[0].length, href: `livro:${m[1]!.toLowerCase()}:${m[2]}` };
