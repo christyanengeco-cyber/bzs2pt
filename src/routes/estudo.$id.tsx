@@ -180,7 +180,7 @@ function Leitor() {
     if (!trecho.trim()) return;
     const rect = r.getBoundingClientRect();
     const x = Math.min(window.innerWidth - 120, Math.max(120, rect.left + rect.width / 2));
-    const y = rect.top > 100 ? rect.top - 58 : rect.bottom + 10;
+    const y = Math.min(window.innerHeight - 64, rect.bottom + 12);
     setSel({ pid, inicio, fim: inicio + trecho.length, trecho, x, y });
   }
 
@@ -200,6 +200,7 @@ function Leitor() {
   }
 
   if (!pub) return <div className="p-8 text-center text-muted-foreground">Carregando…</div>;
+  const navLivro = navigateLivro;
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden">
@@ -300,7 +301,16 @@ function Leitor() {
               onRef={(href, texto) => {
                 if (!href.startsWith("livro:")) return setRef({ href, texto });
                 const [, code, n] = href.split(":");
-                resolverEstudoLivro(code!, Number(n)).then((u) => setRef({ href: u, texto })).catch((e) => alert(e instanceof Error ? e.message : "Falha ao buscar a lição"));
+                (async () => {
+                  const u = (await resolverEstudoLivro(code!, Number(n))).split("#")[0]!;
+                  const ex = (await listarPublicacoes()).find((x) => x.url_origem === u);
+                  if (ex) return navLivro({ to: "/estudo/$id", params: { id: ex.id } });
+                  const r = await importarUrl(u);
+                  r.publicacao.tipo = "referencia"; r.publicacao.pai_id = id;
+                  r.publicacao.semana = pub.semana; r.publicacao.semana_inicio = pub.semana_inicio; r.publicacao.semana_fim = pub.semana_fim;
+                  await salvarPublicacao(r.publicacao, r.paragrafos);
+                  navLivro({ to: "/estudo/$id", params: { id: r.publicacao.id } });
+                })().catch((e) => alert(e instanceof Error ? e.message : "Falha ao buscar a lição"));
               }}
               onTap={() => { if (sel || Date.now() - ultimaSelecao.current < 600 || window.getSelection()?.toString()) return; setAtivo(p.id); if (pub.video_url) { trava.current = p.timestamp_inicio; seekTo(p.timestamp_inicio); } }}
               onOcultar={() => definirOculto(p, true)}
