@@ -476,8 +476,8 @@ function PainelReferencia({ href, texto, pubId, onClose }: { href: string; texto
   );
 }
 
-function ParagrafoView({ cor, p, ativo, acompanhando, notas, temVideo, modoTempo, onRef, onTap, onOcultar, onMarca, onSelect, onSync, onNotas }: {
-  cor?: string | undefined; p: Paragrafo; ativo: boolean; acompanhando: boolean; notas: Anotacao[]; temVideo: boolean; modoTempo: boolean;
+function ParagrafoView({ cor, anterior = "", p, ativo, acompanhando, notas, temVideo, modoTempo, onRef, onTap, onOcultar, onMarca, onSelect, onSync, onNotas }: {
+  cor?: string | undefined; anterior?: string; p: Paragrafo; ativo: boolean; acompanhando: boolean; notas: Anotacao[]; temVideo: boolean; modoTempo: boolean;
   onRef: (href: string, t: string) => void; onTap: () => void; onOcultar: () => void; onMarca: (m: Anotacao) => void; onSelect: (el: HTMLElement) => void; onSync: () => void;
   onNotas: React.Dispatch<React.SetStateAction<Anotacao[]>>;
 }) {
@@ -512,7 +512,7 @@ function ParagrafoView({ cor, p, ativo, acompanhando, notas, temVideo, modoTempo
 
   const temDestaque = notas.some((n) => n.tipo === "destaque");
   const livro = linkEstudoLivro(p.texto_portugues, anterior);
-  const links = livro && !(p.links ?? []).some((l) => l.inicio < livro.fim && l.fim > livro.inicio) ? [...(p.links ?? []), livro] : p.links;
+  const links = livro ? [...(p.links ?? []).filter((l) => !(l.inicio < livro.fim && l.fim > livro.inicio)), livro].sort((a, b) => a.inicio - b.inicio) : p.links;
   const titulo = cor && (p.pergunta || /^\d+\.\s/.test(p.texto_portugues) || (p.texto_portugues.length < 60 && p.texto_portugues === p.texto_portugues.toUpperCase()));
   if (p.imagem) return <img src={p.imagem} alt="" loading="lazy" className="mb-3 w-full rounded-lg" />;
 
