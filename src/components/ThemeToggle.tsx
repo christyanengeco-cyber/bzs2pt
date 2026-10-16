@@ -15,7 +15,12 @@ export function ThemeToggle() {
     const corSalva = corValida(localStorage.getItem("cor-interface"));
     setCor(corSalva);
     aplicarCor(corSalva);
+    const e = Number(localStorage.getItem("escala-texto")) || 1;
+    setEscala(e);
+    document.documentElement.style.setProperty("--escala-texto", String(e));
   }, []);
+  const [escala, setEscala] = useState(1);
+  const mudarEscala = (e: number) => { setEscala(e); localStorage.setItem("escala-texto", String(e)); document.documentElement.style.setProperty("--escala-texto", String(e)); };
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -29,6 +34,14 @@ export function ThemeToggle() {
             {([{ id: "sistema", nome: "Sistema", icon: Monitor }, { id: "claro", nome: "Claro", icon: Sun }, { id: "escuro", nome: "Escuro", icon: Moon }] as const).map((opcao) => (
               <Button key={opcao.id} variant={tema === opcao.id ? "secondary" : "ghost"} aria-pressed={tema === opcao.id} className="flex h-16 flex-col gap-1 px-1 text-xs" onClick={() => { setTema(opcao.id); aplicarTema(opcao.id); }}><opcao.icon />{opcao.nome}</Button>
             ))}
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend className="mb-3 text-sm font-semibold">Tamanho do texto ({Math.round(escala * 100)}%)</legend>
+          <div className="flex items-center gap-3">
+            <span className="text-xs">A</span>
+            <input type="range" min={0.8} max={1.8} step={0.1} value={escala} onChange={(ev) => mudarEscala(+ev.target.value)} aria-label="Tamanho do texto" className="flex-1 accent-primary" />
+            <span className="text-xl font-bold">A</span>
           </div>
         </fieldset>
         <fieldset>
