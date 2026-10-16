@@ -391,7 +391,7 @@ function renderMarcado(texto: string, marcas: Anotacao[], onMarca: (m: Anotacao)
     const l = (links ?? []).find((x) => x.inicio <= ini && x.fim >= fim);
     if (l && onRef) node = <span className="text-reference underline decoration-reference/40 underline-offset-2" onClick={(e) => { if (window.getSelection()?.toString()) return; e.stopPropagation(); onRef(l.href, texto.slice(l.inicio, l.fim)); }}>{node}</span>;
     const m = [...ms].reverse().find((x) => (x.inicio ?? 0) <= ini && (x.fim ?? texto.length) >= fim);
-    if (m) node = <mark style={{ background: m.cor_destaque }} className="cursor-pointer rounded-sm text-foreground" onClick={(e) => { if (window.getSelection()?.toString()) return; e.stopPropagation(); onMarca(m); }}>{node}</mark>;
+    if (m) node = <mark style={{ background: m.cor_destaque }} className="cursor-pointer rounded-sm font-medium text-black" onClick={(e) => { if (window.getSelection()?.toString()) return; e.stopPropagation(); onMarca(m); }}>{node}</mark>;
     out.push(<span key={ini}>{node}</span>);
   }
   return out;
