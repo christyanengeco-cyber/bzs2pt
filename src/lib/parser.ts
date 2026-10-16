@@ -272,16 +272,35 @@ export async function buscarReferencia(href: string): Promise<ConteudoReferencia
 }
 
 /** Estudo bíblico de congregação: encontra a lição em Libras pelo código da publicação. */
+const LIVROS_BZS: Record<string, { slug: string; meps: string }> = {
+  wcg: { slug: "ande-corajosamente-com-deus", meps: "11020259" },
+  lff: { slug: "seja-feliz-para-sempre", meps: "11020212" },
+};
+
 export async function resolverEstudoLivro(code: string, n: number): Promise<string> {
-  const base = `https://www.jw.org/finder?wtlocale=BZS&pub=${encodeURIComponent(code)}`;
+  const info = LIVROS_BZS[code];
+  const base = info
+    ? `https://www.jw.org/bzs/biblioteca/livros/${info.slug}/`
+    : `https://www.jw.org/finder?wtlocale=BZS&pub=${encodeURIComponent(code)}`;
   const html = await fetchProxy(base);
   const doc = new DOMParser().parseFromString(html, "text/html");
+  const abs = (h: string) => new URL(h, "https://www.jw.org").href;
+  if (info) {
+    const id = `${info.meps}${String(n).padStart(2, "0")}`;
+    for (const el of Array.from(doc.querySelectorAll("*"))) {
+      const attrs = Array.from(el.attributes).map((a) => a.value).join(" ");
+      if (!new RegExp(`(mid|docid=|^|\\D)${id}(\\D|$)`).test(attrs)) continue;
+      const a = el.closest("a[href]") ?? el.querySelector("a[href]");
+      const h = a?.getAttribute("href");
+      if (h && h.includes("/bzs/")) return abs(h);
+    }
+  }
   const re = new RegExp(`(^|\\b(li[çc][aã]o|cap[ií]tulo|cap\\.?)\\s*)0*${n}\\b`, "i");
   for (const a of Array.from(doc.querySelectorAll("a[href]"))) {
     const t = a.textContent?.replace(/\s+/g, " ").trim() ?? "";
     const href = a.getAttribute("href") ?? "";
     if (!href.includes("/bzs/") || !re.test(t)) continue;
-    return new URL(href, "https://www.jw.org").href;
+    return abs(href);
   }
   throw new Error("Lição não encontrada no sumário em Libras.");
 }
@@ -289,7 +308,7 @@ export async function resolverEstudoLivro(code: string, n: number): Promise<stri
 const LIVRO_RE = /\b(wcg|lff|lfb|bt|jy|rr|ia|lv|lr|bhs|cl|scl|wp|ld|lmd|jl)\s+(?:li[çc][aã]o|cap(?:[ií]tulo|\.)?|hist[óo]ria)?\s*(\d+)/i;
 /** Cria link interno para o estudo de livro no parágrafo do Estudo bíblico de congregação. */
 export function linkEstudoLivro(texto: string, anterior = "") {
-  if (!/estudo b[íi]blico de congrega/i.test(texto + " " + anterior)) return null;
+  if (!/estudo b[íi]blico de congrega|\(30 min\)|\bwcg\s+\d/i.test(texto + " " + anterior)) return null;
   const m = texto.match(LIVRO_RE);
   if (!m || m.index == null) return null;
   return { inicio: m.index, fim: m.index + m[0].length, href: `livro:${m[1]!.toLowerCase()}:${m[2]}` };
