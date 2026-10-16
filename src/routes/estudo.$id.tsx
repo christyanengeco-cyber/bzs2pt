@@ -308,7 +308,7 @@ function Leitor() {
                   if (ex) return navLivro({ to: "/estudo/$id", params: { id: ex.id } });
                   const r = await importarUrl(u);
                   r.publicacao.tipo = "referencia"; r.publicacao.pai_id = id;
-                  r.publicacao.semana = pub.semana; r.publicacao.semana_inicio = pub.semana_inicio; r.publicacao.semana_fim = pub.semana_fim;
+                  r.publicacao.semana = pub.semana; if (pub.semana_inicio) r.publicacao.semana_inicio = pub.semana_inicio; if (pub.semana_fim) r.publicacao.semana_fim = pub.semana_fim;
                   await salvarPublicacao(r.publicacao, r.paragrafos);
                   navLivro({ to: "/estudo/$id", params: { id: r.publicacao.id } });
                 })().catch((e) => alert(e instanceof Error ? e.message : "Falha ao buscar a lição"));
