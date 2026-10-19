@@ -573,12 +573,11 @@ function ParagrafoView({ cor, anterior = "", p, ativo, acompanhando, notas, temV
       </div>
       {aberto && (
         <textarea
-          autoFocus
           value={texto}
           onChange={(e) => escrever(e.target.value)}
           placeholder="Minha anotação… (salva automaticamente)"
           rows={3}
-          className="mt-1 w-full rounded-md border bg-transparent p-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+          className="mt-1 w-full rounded-md border bg-transparent p-3 text-[0.9em] outline-none focus:ring-2 focus:ring-ring"
         />
       )}
     </div>

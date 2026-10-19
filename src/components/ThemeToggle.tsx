@@ -40,7 +40,7 @@ export function ThemeToggle() {
           <legend className="mb-3 text-sm font-semibold">Tamanho do texto ({Math.round(escala * 100)}%)</legend>
           <div className="flex items-center gap-3">
             <span className="text-xs">A</span>
-            <input type="range" min={0.8} max={1.8} step={0.1} value={escala} onChange={(ev) => mudarEscala(+ev.target.value)} aria-label="Tamanho do texto" className="flex-1 accent-primary" />
+            <input type="range" min={0.5} max={1.8} step={0.1} value={escala} onChange={(ev) => mudarEscala(+ev.target.value)} aria-label="Tamanho do texto" className="flex-1 accent-primary" />
             <span className="text-xl font-bold">A</span>
           </div>
         </fieldset>

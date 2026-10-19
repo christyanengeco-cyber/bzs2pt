@@ -25,9 +25,13 @@ export const Route = createFileRoute("/")({
 const ABAS: { id: TipoPub; nome: string }[] = [
   { id: "sentinela", nome: "A Sentinela" },
   { id: "apostila", nome: "Vida e Ministério" },
+  { id: "extras", nome: "Extras" },
 ];
 
 const chaveSemana = (p: Publicacao) => intervaloDaPublicacao(p)?.inicio ?? `texto:${p.semana}`;
+const ordenarPorTitulo = (a: Publicacao, b: Publicacao) =>
+  a.titulo.localeCompare(b.titulo, "pt-BR", { numeric: true, sensitivity: "base" }) ||
+  b.criado_em - a.criado_em;
 
 function Biblioteca() {
   const [pubs, setPubs] = useState<Publicacao[]>([]);
@@ -39,17 +43,21 @@ function Biblioteca() {
   const recarregar = () => listarPublicacoes().then(setPubs);
   useEffect(() => { recarregar(); }, []);
 
-  const daAba = useMemo(() => pubs.filter((p) => p.tipo === aba).sort(ordenarSemanasCronologicamente), [pubs, aba]);
+  const daAba = useMemo(
+    () => pubs.filter((p) => p.tipo === aba).sort(aba === "extras" ? ordenarPorTitulo : ordenarSemanasCronologicamente),
+    [pubs, aba],
+  );
   const semanas = useMemo(() => {
+    if (aba === "extras") return []; // Extras não usa seletor de semanas
     const grupos = new Map<string, Publicacao[]>();
     for (const p of daAba) grupos.set(chaveSemana(p), [...(grupos.get(chaveSemana(p)) ?? []), p]);
     return Array.from(grupos, ([chave, estudos]) => {
       const primeiro = estudos[0];
       return { chave, estudos, intervalo: primeiro ? intervaloDaPublicacao(primeiro) : null };
     });
-  }, [daAba]);
+  }, [daAba, aba]);
 
-  const escolhaPadrao = escolherSemanaInicial(daAba);
+  const escolhaPadrao = aba === "extras" ? null : escolherSemanaInicial(daAba);
   const publicacaoPadrao = escolhaPadrao ? daAba.find((p) => p.id === escolhaPadrao.id) : undefined;
   const chavePadrao = publicacaoPadrao ? chaveSemana(publicacaoPadrao) : undefined;
   const chaveSelecionada = semanas.some((s) => s.chave === selecionadas[aba]) ? selecionadas[aba] : chavePadrao;
@@ -57,6 +65,7 @@ function Biblioteca() {
   const atual = semanaSelecionada?.intervalo
     ? semanaSelecionada.intervalo.inicio <= hojeIso() && semanaSelecionada.intervalo.fim >= hojeIso()
     : false;
+  const listaAtual = aba === "extras" ? daAba : (semanaSelecionada?.estudos ?? []);
   useEffect(() => {
     semanaAtiva.current?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   }, [aba, chaveSelecionada]);
@@ -74,7 +83,7 @@ function Biblioteca() {
         </div>
       </header>
 
-      <div className="grid grid-cols-2 border-b bg-card px-4 pt-2" role="tablist" aria-label="Publicação">
+      <div className="grid grid-cols-3 border-b bg-card px-4 pt-2" role="tablist" aria-label="Publicação">
         {ABAS.map((item) => (
           <Button
             key={item.id}
@@ -119,7 +128,11 @@ function Biblioteca() {
           <div className="border border-dashed px-6 py-12 text-center text-muted-foreground">
             <BookOpen className="mx-auto mb-3 h-9 w-9 text-primary" />
             <p className="font-medium text-foreground">Nenhum estudo importado</p>
-            <p className="mt-1 text-sm">Importe uma revista ou uma matéria do jw.org.</p>
+            <p className="mt-1 text-sm">
+              {aba === "extras"
+                ? "Importe um livro ou uma brochura do jw.org e marque “Salvar na aba Extras”."
+                : "Importe uma revista ou uma matéria do jw.org."}
+            </p>
           </div>
         ) : (
           <>
@@ -127,12 +140,12 @@ function Biblioteca() {
               <p className="mb-3 flex items-center gap-2 text-xs text-muted-foreground"><Clock3 className="h-3.5 w-3.5" /> A semana atual ainda não foi importada. Mostrando a anterior mais recente.</p>
             )}
             <ul className="space-y-3">
-              {(semanaSelecionada?.estudos ?? []).map((p) => (
+              {listaAtual.map((p) => (
                 <li key={p.id} className="flex items-stretch rounded-lg bg-card px-3">
                   <Link to="/estudo/$id" params={{ id: p.id }} className="flex min-w-0 flex-1 items-center gap-3 py-4 pr-2">
                     <span className="grid h-16 w-12 shrink-0 place-items-center rounded-md bg-secondary text-section" aria-hidden="true"><BookOpen className="h-6 w-6" /></span>
                     <span className="min-w-0">
-                      <span className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" /> {p.semana}</span>
+                      {aba !== "extras" && <span className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" /> {p.semana}</span>}
                       <span className="block text-lg font-semibold leading-snug">{p.titulo}</span>
                     </span>
                   </Link>
@@ -169,6 +182,7 @@ function ImportModal({ existentes, onClose, onDone }: { existentes: Set<string>;
   const [erros, setErros] = useState<Record<string, string>>({});
   const [ultimoTipo, setUltimoTipo] = useState<TipoPub | null>(null);
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
+  const [extras, setExtras] = useState(false);
   const [inicio, setInicio] = useState<number | null>(null);
   const [agora, setAgora] = useState(Date.now());
   useEffect(() => {
@@ -186,6 +200,7 @@ function ImportModal({ existentes, onClose, onDone }: { existentes: Set<string>;
     setStatus((s) => ({ ...s, [u]: "importando" }));
     try {
       const r = await importarUrl(u);
+      if (extras) r.publicacao.tipo = "extras";
       await salvarPublicacao(r.publicacao, r.paragrafos);
       existentes.add(u);
       setUltimoTipo(r.publicacao.tipo);
@@ -262,6 +277,15 @@ function ImportModal({ existentes, onClose, onDone }: { existentes: Set<string>;
                 );
               })}
             </ul>
+            <label className="mt-4 flex items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={extras}
+                onChange={(e) => setExtras(e.target.checked)}
+                className="h-5 w-5 shrink-0 accent-primary"
+              />
+              Salvar na aba <span className="font-semibold">Extras</span>&nbsp;(livros e brochuras)
+            </label>
             {carregando && lote.total > 0 && <AnelProgresso feitos={lote.feitos} total={lote.total} tempo={cron} />}
             <div className="mt-4 flex flex-col gap-2">
               {falhos.length > 0 && <Button variant="outline" disabled={carregando} onClick={() => importarVarios(falhos)}><RefreshCw /> Tentar falhas novamente</Button>}
@@ -280,6 +304,16 @@ function ImportModal({ existentes, onClose, onDone }: { existentes: Set<string>;
             </div>
             {erro && <p role="alert" className="mt-3 text-sm text-destructive">{erro}</p>}
             {avisos.map((aviso) => <p key={aviso} className="mt-3 border-l-2 border-primary bg-selection p-2 text-sm">{aviso}</p>)}
+            <label htmlFor="salvar-extras" className="mt-3 flex items-center gap-3 text-sm">
+              <input
+                id="salvar-extras"
+                type="checkbox"
+                checked={extras}
+                onChange={(e) => setExtras(e.target.checked)}
+                className="h-5 w-5 shrink-0 accent-primary"
+              />
+              É livro ou brochura — salvar na aba <span className="font-semibold">Extras</span>
+            </label>
             <Button disabled={carregando || !url} onClick={buscar} className="mt-5 w-full">
               {carregando && <Loader2 className="animate-spin" />}{carregando ? "Abrindo" : "Continuar"} {cron}
             </Button>

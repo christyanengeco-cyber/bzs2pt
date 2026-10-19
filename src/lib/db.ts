@@ -1,6 +1,6 @@
 import { openDB, type IDBPDatabase } from "idb";
 
-export type TipoPub = "sentinela" | "apostila" | "referencia";
+export type TipoPub = "sentinela" | "apostila" | "referencia" | "extras";
 export interface Publicacao {
   id: string;
   tipo: TipoPub;
