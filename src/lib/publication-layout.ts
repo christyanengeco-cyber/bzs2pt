@@ -11,7 +11,7 @@ export function identificarSecao(texto: string): Secao | undefined {
 export function elementosPublicacao(doc: Document) {
   const root = doc.querySelector(".slContentText, .bodyTxt")?.closest("article") ?? doc.querySelector("article, #article, .docSubContent, main") ?? doc.body;
   return Array.from(root.querySelectorAll("h1[data-pid], h2, h3, p, figure .jsRespImg, figure img, figure figcaption"))
-    .filter((el) => !el.closest("nav, footer, .footnote, .jsRelatedPubs, .slContentVideo, .noJShide, .relatedImage") &&
+    .filter((el) => !el.closest("nav, footer, .footnote, .jsRelatedPubs, .noJShide, .relatedImage") &&
       !(el.tagName === "IMG" && el.closest(".jsRespImg")));
 }
 

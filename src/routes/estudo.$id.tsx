@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Clock, MessageCircle, Pause, Play, Eraser, Video, EyeOff, Eye, Trash2, X, Pencil, Maximize, Minimize, RotateCcw, RotateCw, Loader2, BookOpen, ExternalLink, Music2 } from "lucide-react";
-import { LIXO, buscarReferencia, linkEstudoLivro, resolverEstudoLivro, importarUrl, type ConteudoReferencia } from "@/lib/parser";
+import { LIXO, buscarReferencia, linkEstudoLivro, resolverEstudoLivro, importarUrl, extrairVideo, type ConteudoReferencia, type VideoEncontrado } from "@/lib/parser";
 import { salvarPublicacao, listarPublicacoes } from "@/lib/db";
 import { SectionIcon } from "@/components/SectionIcon";
 import { identificarSecao, mesclarEstrutura, type Secao } from "@/lib/publication-layout";
@@ -50,6 +50,7 @@ function Leitor() {
   const trava = useRef<number | null>(null);
   const ultimaSelecao = useRef(0);
   const [ref, setRef] = useState<{ href: string; texto: string } | null>(null);
+  const [buscando, setBuscando] = useState<string | null>(null);
   const playerRef = useRef<HTMLDivElement>(null);
   const [telaCheia, setTelaCheia] = useState(false);
   const [controles, setControles] = useState(true);
@@ -310,7 +311,9 @@ function Leitor() {
               modoTempo={modoTempo}
               onRef={(href, texto) => {
                 if (!href.startsWith("livro:")) return setRef({ href, texto });
+                if (buscando) return;
                 const [, code, n] = href.split(":");
+                setBuscando("Buscando lição em Libras…");
                 (async () => {
                   const u = (await resolverEstudoLivro(code ?? "", Number(n))).split("#")[0] ?? "";
                   const ex = (await listarPublicacoes()).find((x) => x.url_origem === u);
@@ -320,7 +323,7 @@ function Leitor() {
                   r.publicacao.semana = pub.semana; if (pub.semana_inicio) r.publicacao.semana_inicio = pub.semana_inicio; if (pub.semana_fim) r.publicacao.semana_fim = pub.semana_fim;
                   await salvarPublicacao(r.publicacao, r.paragrafos);
                   navLivro({ to: "/estudo/$id", params: { id: r.publicacao.id } });
-                })().catch((e) => alert(e instanceof Error ? e.message : "Falha ao buscar a lição"));
+                })().catch((e) => alert(e instanceof Error ? e.message : "Falha ao buscar a lição")).finally(() => setBuscando(null));
               }}
               onTap={() => { if (sel || Date.now() - ultimaSelecao.current < 600 || window.getSelection()?.toString()) return; setAtivo(p.id); if (pub.video_url) { trava.current = p.timestamp_inicio; seekTo(p.timestamp_inicio); } }}
               onOcultar={() => definirOculto(p, true)}
@@ -383,6 +386,13 @@ function Leitor() {
           <button onPointerDown={(e) => { e.preventDefault(); setSel(null); window.getSelection()?.removeAllRanges(); }} className="px-2 text-sm text-muted-foreground">Cancelar</button>
         </div>
       )}
+
+      {buscando && (
+        <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-lg">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          {buscando}
+        </div>
+      )}
     </div>
   );
 }
@@ -412,10 +422,13 @@ function PainelReferencia({ href, texto, pubId, onClose }: { href: string; texto
   const [erro, setErro] = useState("");
   const [importando, setImportando] = useState(false);
   const [existente, setExistente] = useState<string | null>(null);
+  const [video, setVideo] = useState<VideoEncontrado | null>(null);
   const navigate = useNavigate();
   const origem = href.split("#")[0] ?? href;
   useEffect(() => {
     let vivo = true;
+    setVideo(null);
+    if (/biblioteca\/videos|mid=\d+|\.mp4/i.test(href)) extrairVideo(href).then((v) => { if (vivo && v) setVideo(v); }).catch(() => {});
     buscarReferencia(href).then((d) => vivo && setDados(d)).catch((e) => vivo && setErro(e instanceof Error ? e.message : String(e)));
     listarPublicacoes().then(async (ps) => {
       const p = ps.find((x) => x.url_origem === origem);
@@ -459,6 +472,10 @@ function PainelReferencia({ href, texto, pubId, onClose }: { href: string; texto
         {mini && <video ref={vRef} src={mini.pub.video_url} controls playsInline className="aspect-video w-full bg-background" onTimeUpdate={(e) => setTMini(e.currentTarget.currentTime)} />}
         {dados && !dados.biblia && !mini && !existente && !erro && <p className="flex items-center gap-2 border-b px-4 py-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Buscando vídeo em Libras…</p>}
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[1.05rem] leading-relaxed" style={{ fontSize: "calc(1.05rem * var(--escala-texto, 1))" }}>
+          {video && <>
+            <video src={video.mp4} controls playsInline className="w-full rounded-lg bg-black" aria-label={video.titulo} />
+            {video.titulo && <p className="text-sm font-medium">{video.titulo}</p>}
+          </>}
           {!dados && !erro && <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Buscando…</p>}
           {erro && <p className="text-sm text-destructive">{erro}</p>}
           {mini ? <>

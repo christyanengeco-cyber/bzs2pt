@@ -6,20 +6,29 @@ import { elementosPublicacao, imagemDoElemento, estruturaDoElemento, guardarImag
 const PROXIES = [
   (u: string) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
   (u: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  (u: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
 ];
+
+/** Corrida contra um limite de tempo; evita rejeição não tratada do perdedor. */
+function comTempo<T>(p: Promise<T>, ms: number): Promise<T> {
+  const fim = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("tempo esgotado")), ms));
+  p.catch(() => {});
+  return Promise.race([p, fim]);
+}
 
 export async function fetchProxy(url: string): Promise<string> {
   let lastErr: unknown;
-  try {
-    return (await baixarPagina({ data: { url } })).texto;
-  } catch (e) {
-    lastErr = e;
-  }
-  for (const p of PROXIES) {
+  const tentativas: (() => Promise<string>)[] = [
+    async () => (await baixarPagina({ data: { url } })).texto,
+    ...PROXIES.map((p) => async () => {
+      const r = await fetch(p(url), { signal: AbortSignal.timeout(20000) });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return await r.text();
+    }),
+  ];
+  for (const tentar of tentativas) {
     try {
-      const r = await fetch(p(url));
-      if (r.ok) return await r.text();
-      lastErr = new Error(`HTTP ${r.status}`);
+      return await comTempo(tentar(), 25000);
     } catch (e) {
       lastErr = e;
     }
@@ -98,6 +107,56 @@ function parseVtt(vtt: string): number[] {
   return res;
 }
 
+async function videoDaPagina(html: string, base: string): Promise<{ titulo: string; mp4s: string[]; doc: Document }> {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const titulo = doc.querySelector("meta[property='og:title']")?.getAttribute("content") || doc.title || "";
+  const mp4s: string[] = [];
+  for (const el of Array.from(doc.querySelectorAll("video source[src], video[src], a[href*='.mp4'], [data-src*='.mp4']"))) {
+    const v = el.getAttribute("src") || el.getAttribute("href") || el.getAttribute("data-src");
+    if (v && /\.mp4/i.test(v)) { try { mp4s.push(new URL(v, base).href); } catch { /* ignore */ } }
+  }
+  const extras: unknown[] = [];
+  doc.querySelectorAll('script[type="application/ld+json"], script[type="application/json"]').forEach((s) => {
+    try { extras.push(JSON.parse(s.textContent || "")); } catch { /* ignore */ }
+  });
+  const jsonUrls = Array.from(doc.querySelectorAll("[data-jsonurl]")).map((e) => { try { return new URL(e.getAttribute("data-jsonurl")!, base).href; } catch { return ""; } }).filter(Boolean).slice(0, 6);
+  for (const ju of jsonUrls) {
+    try { extras.push(JSON.parse(await fetchProxy(ju))); } catch { /* ignore */ }
+  }
+  for (const b of extras) mp4s.push(...findMp4(b));
+  const m = html.match(/https?:[^"'\s<>]+?\.mp4/i);
+  if (m) mp4s.push(m[0].replace(/\\\//g, "/"));
+  return { titulo, mp4s, doc };
+}
+
+function escolherMp4(mp4s: string[]): string | undefined {
+  return mp4s.find((m) => /720p/.test(m)) || mp4s.find((m) => /480p/.test(m)) || mp4s.find((m) => /360|240/.test(m)) || mp4s[0];
+}
+
+export interface VideoEncontrado { titulo: string; mp4: string }
+
+/** Descobre o MP4 de um vídeo do jw.org a partir do link (página de vídeo ou listagem com #mid=). */
+export async function extrairVideo(url: string): Promise<VideoEncontrado | undefined> {
+  const mid = url.match(/mid=(\d+)/)?.[1];
+  const pag = await videoDaPagina(await fetchProxy(url.split("#")[0] ?? url), url);
+  if (mid) {
+    const a = Array.from(pag.doc.querySelectorAll("a[href]")).find((x) => (x.getAttribute("href") ?? "").includes(mid));
+    const h = a?.getAttribute("href");
+    if (h) {
+      const alvo = new URL(h, url).href;
+      if (alvo.split("#")[0] !== url.split("#")[0]) {
+        try {
+          const pag2 = await videoDaPagina(await fetchProxy(alvo.split("#")[0] ?? alvo), alvo);
+          const mp4 = escolherMp4(pag2.mp4s);
+          if (mp4) return { titulo: pag2.titulo || pag.titulo, mp4 };
+        } catch { /* segue para a própria página */ }
+      }
+    }
+  }
+  const mp4 = escolherMp4(pag.mp4s);
+  return mp4 ? { titulo: pag.titulo, mp4 } : undefined;
+}
+
 export interface ResultadoImport {
   publicacao: Publicacao;
   paragrafos: Paragrafo[];
@@ -142,15 +201,22 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
   const jsonUrls = Array.from(doc.querySelectorAll("[data-jsonurl]")).map((e) => abs(e.getAttribute("data-jsonurl")!));
   const docId = jsonUrls.map((u) => u.match(/docid=(\d+)/)?.[1]).find(Boolean);
   const ordenadas = [...jsonUrls.filter((u) => /track=/.test(u) && /mp4/i.test(u)), ...jsonUrls];
-  for (const ju of Array.from(new Set(ordenadas)).slice(0, 3)) {
-    try { jsonBlobs.push(JSON.parse(await fetchProxy(ju))); } catch { /* ignore */ }
+  const pids = new Set(Array.from(doc.querySelectorAll("[data-pid]")).map((e) => e.getAttribute("data-pid") ?? ""));
+  const blobs = jsonBlobs.map((j) => ({ mp4s: findMp4(j), markers: findMarkers(j) }));
+  for (const ju of Array.from(new Set(ordenadas)).slice(0, 8)) {
+    try {
+      const j: unknown = JSON.parse(await fetchProxy(ju));
+      blobs.push({ mp4s: findMp4(j), markers: findMarkers(j) });
+    } catch { /* ignore */ }
   }
-  for (const j of jsonBlobs) {
-    if (!video_url) {
-      const mp4s = findMp4(j);
-      video_url = mp4s.find((m) => /720|480/.test(m)) || mp4s[0] || "";
-    }
-    markers.push(...findMarkers(j));
+  const pontos = (b: { markers: Marker[] }) => b.markers.filter((m) => m.label && pids.has(m.label)).length;
+  const comMp4 = blobs.filter((b) => b.mp4s.length);
+  if (comMp4.length) {
+    const melhor = [...comMp4].sort((a, b) => pontos(b) - pontos(a))[0]!;
+    video_url = melhor.mp4s.find((m) => /720p/.test(m)) || melhor.mp4s.find((m) => /480p/.test(m)) || melhor.mp4s[0] || "";
+    markers = pontos(melhor) > 0 ? melhor.markers : comMp4.flatMap((b) => b.markers);
+  } else {
+    markers = blobs.flatMap((b) => b.markers);
   }
   if (docId && markers.some((m) => m.docId === docId)) markers = markers.filter((m) => m.docId === docId);
   {
@@ -303,11 +369,20 @@ export async function resolverEstudoLivro(code: string, n: number): Promise<stri
   throw new Error("Lição não encontrada no sumário em Libras.");
 }
 
-const LIVRO_RE = /\b(wcg|lff|lfb|bt|jy|rr|ia|lv|lr|bhs|cl|scl|wp|ld|lmd|jl)\s+(?:li[çc][aã]o|cap(?:[ií]tulo|\.)?|hist[óo]ria)?\s*(\d+)/i;
+const LIVRO_RE = /\b(wcg|lff|lfb|bt|jy|rr|ia|lv|lr|bhs|cl|scl|wp|ld|lmd|jl)\s*[-–—]?\s*(?:li[çc][aã]o|cap(?:[ií]tulo|\.)?|hist[óo]ria|ex(?:er[cç][íi]cios)?\.?)?\s*[º°]?\s*(\d+)/i;
+const NOMES_LIVROS: [RegExp, string][] = [
+  [/ande\s+corajosamente\s+com\s+deus/i, "wcg"],
+  [/seja\s+feliz\s+para\s+sempre/i, "lff"],
+];
 /** Cria link interno para o estudo de livro no parágrafo do Estudo bíblico de congregação. */
 export function linkEstudoLivro(texto: string, anterior = "") {
-  if (!/estudo b[íi]blico de congrega|\(30 min\)|\bwcg\s+\d/i.test(texto + " " + anterior)) return null;
+  if (!/estudo b[íi]blico de congrega|\(30 min\)|\b(?:wcg|lff)\s*[-–—]?\s*(?:li[çc][aã]o|cap(?:[ií]tulo|\.)?|hist[óo]ria|ex(?:er[cç][íi]cios)?\.?)?\s*[º°]?\s*\d|ande\s+corajosamente\s+com\s+deus|seja\s+feliz\s+para\s+sempre/i.test(texto + " " + anterior)) return null;
   const m = texto.match(LIVRO_RE);
-  if (!m || m.index == null) return null;
-  return { inicio: m.index, fim: m.index + m[0].length, href: `livro:${m[1]!.toLowerCase()}:${m[2]}` };
+  if (m && m.index != null) return { inicio: m.index, fim: m.index + m[0].length, href: `livro:${m[1]!.toLowerCase()}:${m[2]}` };
+  // Nome do livro por extenso: "Ande corajosamente com Deus, lição 13"
+  for (const [re, code] of NOMES_LIVROS) {
+    const nm = texto.match(new RegExp(re.source + "\\D{0,30}?(\\d+)", "i"));
+    if (nm && nm.index != null) return { inicio: nm.index, fim: nm.index + nm[0].length, href: `livro:${code}:${nm[1]}` };
+  }
+  return null;
 }
