@@ -428,7 +428,9 @@ function PainelReferencia({ href, texto, pubId, onClose }: { href: string; texto
   useEffect(() => {
     let vivo = true;
     setVideo(null);
-    if (/biblioteca\/videos|mid=\d+|\.mp4/i.test(href)) extrairVideo(href).then((v) => { if (vivo && v) setVideo(v); }).catch(() => {});
+    // Links de vídeo (ex.: “Mostre o VÍDEO” da apostila) podem vir em vários formatos
+    // de URL; o teste cobre /biblioteca/videos/, /videos/, mid= e .mp4 direto.
+    if (/video/i.test(href) || /mid=\d+/.test(href) || /\.mp4/i.test(href)) extrairVideo(href).then((v) => { if (vivo && v) setVideo(v); }).catch(() => {});
     buscarReferencia(href).then((d) => vivo && setDados(d)).catch((e) => vivo && setErro(e instanceof Error ? e.message : String(e)));
     listarPublicacoes().then(async (ps) => {
       const p = ps.find((x) => x.url_origem === origem);

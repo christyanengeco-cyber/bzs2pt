@@ -3,37 +3,60 @@ import { baixarPagina } from "./fetch-page.functions";
 import { extrairIntervaloSemana } from "./study-dates";
 import { elementosPublicacao, imagemDoElemento, estruturaDoElemento, guardarImagem } from "./publication-layout";
 
-const PROXIES = [
-  (u: string) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+// corsproxy.io passou a exigir chave de API (responde 401), então o encadeamento agora
+// começa pelos proxies públicos sem chave e trata corpo vazio/desafio do WAF como falha.
+const PROXIES: ((u: string) => string)[] = [
   (u: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
   (u: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  (u: string) => `https://api.cors.lol/?url=${encodeURIComponent(u)}`,
+  (u: string) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
 ];
 
-/** Corrida contra um limite de tempo; evita rejeição não tratada do perdedor. */
-function comTempo<T>(p: Promise<T>, ms: number): Promise<T> {
-  const fim = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("tempo esgotado")), ms));
-  p.catch(() => {});
-  return Promise.race([p, fim]);
+/** Páginas reais do jw.org são HTML, JSON (data-jsonurl) ou legendas VTT — nunca um corpo vazio. */
+function respostaUtil(t: string): boolean {
+  const s = t.trim();
+  if (!s) return false;
+  return /^<!doctype/i.test(s) || /^<html/i.test(s) || /^[{[]/.test(s) || /^WEBVTT/i.test(s) || s.length > 1000;
 }
 
+// Cache de curto prazo: o painel de referência e a importação buscam a mesma página
+// mais de uma vez; em redes fracas cada download passa por vários proxies.
+const cacheFetch = new Map<string, { texto: string; expira: number }>();
+const TEMPO_CACHE = 120000;
+
 export async function fetchProxy(url: string): Promise<string> {
-  let lastErr: unknown;
-  const tentativas: (() => Promise<string>)[] = [
-    async () => (await baixarPagina({ data: { url } })).texto,
-    ...PROXIES.map((p) => async () => {
-      const r = await fetch(p(url), { signal: AbortSignal.timeout(20000) });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return await r.text();
-    }),
-  ];
-  for (const tentar of tentativas) {
+  const c = cacheFetch.get(url);
+  if (c && c.expira > Date.now()) return c.texto;
+  const erros: string[] = [];
+  try {
+    const r = await baixarPagina({ data: { url } });
+    if (respostaUtil(r.texto)) {
+      cacheFetch.set(url, { texto: r.texto, expira: Date.now() + TEMPO_CACHE });
+      return r.texto;
+    }
+    erros.push("jw.org devolveu uma resposta vazia");
+  } catch (e) {
+    erros.push(e instanceof Error ? e.message : String(e));
+  }
+  for (const p of PROXIES) {
     try {
-      return await comTempo(tentar(), 25000);
+      const r = await fetch(p(url), { signal: AbortSignal.timeout(20000) });
+      if (!r.ok) {
+        erros.push(`HTTP ${r.status}`);
+        continue;
+      }
+      const t = await r.text();
+      if (!respostaUtil(t)) {
+        erros.push("proxy devolveu uma resposta vazia");
+        continue;
+      }
+      cacheFetch.set(url, { texto: t, expira: Date.now() + TEMPO_CACHE });
+      return t;
     } catch (e) {
-      lastErr = e;
+      erros.push(e instanceof Error ? e.message : String(e));
     }
   }
-  throw new Error("Não foi possível baixar a página. " + (lastErr instanceof Error ? lastErr.message : String(lastErr)));
+  throw new Error(`Não foi possível baixar a página (${erros.slice(0, 2).join("; ")}). Verifique sua conexão e tente de novo.`);
 }
 
 export const LIXO = /^(Desculpe-nos\. O tocador de mídia não carregou\.?|Baixar vídeo|Baixar|Compartilhar|Reproduzir)$/i;
@@ -87,7 +110,7 @@ function findMarkers(obj: unknown, out: Marker[] = []): Marker[] {
     const o = obj as any; // eslint-disable-line @typescript-eslint/no-explicit-any
     if (Array.isArray(o.markers)) {
       const docId = o.documentId != null ? String(o.documentId) : undefined;
-      for (const m of o.markers as any[]) {
+      for (const m of o.markers as any[]) { // eslint-disable-line @typescript-eslint/no-explicit-any
         const st = m.startTime ?? m.start ?? m.time;
         if (st != null)
           out.push({
@@ -265,7 +288,16 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
     });
     textos.push({ estrutura: estruturaDoElemento(el), texto: t, pergunta, pid: el.getAttribute("data-pid") ?? undefined, links });
   }
-  if (!textos.some((t) => t.texto)) throw new Error("Nenhum parágrafo encontrado nesta página.");
+  if (!textos.some((t) => t.texto)) {
+    // Páginas de vídeo (links “Mostre o VÍDEO” da apostila) quase não têm parágrafos;
+    // se o vídeo foi encontrado, o estudo ainda é salvo com o player em Libras.
+    if (video_url) {
+      avisos.push("Esta página é um vídeo: ela foi importada com o vídeo em Libras.");
+      textos.push({ texto: titulo, pergunta: false, links: [] });
+    } else {
+      throw new Error("Nenhum parágrafo encontrado nesta página.");
+    }
+  }
 
   const pubId = uid();
   const usaPid = textos.some((t) => t.pid && markers.some((m) => m.label === t.pid));
@@ -341,8 +373,35 @@ const LIVROS_BZS: Record<string, { slug: string; meps: string }> = {
   lff: { slug: "seja-feliz-para-sempre", meps: "11020212" },
 };
 
+/** URL canônica de uma página do jw.org (a partir de <link rel=canonical>), válida
+ *  também quando a página chega via proxy, já que o redirect já foi seguido. */
+export function extrairUrlCanonical(doc: Document): string | undefined {
+  const u =
+    doc.querySelector('link[rel="canonical"]')?.getAttribute("href") ||
+    doc.querySelector('meta[property="og:url"]')?.getAttribute("content");
+  if (!u) return undefined;
+  try {
+    const parsed = new URL(u, "https://www.jw.org");
+    const segmentos = parsed.pathname.split("/").filter(Boolean);
+    if (/^bzs$/i.test(segmentos[0] ?? "") && segmentos.length >= 3 && !/finder|home/i.test(parsed.pathname)) return parsed.href;
+  } catch { /* ignore */ }
+  return undefined;
+}
+
 export async function resolverEstudoLivro(code: string, n: number): Promise<string> {
   const info = LIVROS_BZS[code];
+  // 1) Caminho canônico: o finder do jw.org redireciona direto para a lição em Libras;
+  //    a URL final sai do <link rel=canonical>, imune a mudanças de estrutura do site.
+  if (info) {
+    const docId = `${info.meps}${String(n).padStart(2, "0")}`;
+    try {
+      const html = await fetchProxy(`https://www.jw.org/finder?wtlocale=BZS&docid=${docId}`);
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const u = extrairUrlCanonical(doc);
+      if (u) return u;
+    } catch { /* tenta o sumário do livro */ }
+  }
+  // 2) Sumário do livro em Libras: procura o docid da lição nos atributos da página-índice.
   const base = info
     ? `https://www.jw.org/bzs/biblioteca/livros/${info.slug}/`
     : `https://www.jw.org/finder?wtlocale=BZS&pub=${encodeURIComponent(code)}`;
