@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { listarTodosDados, restaurarDados } from "@/lib/db";
 import { validarBackup, type BackupEstudos } from "@/lib/backup";
+import { ROTULO_BUILD } from "@/lib/build";
 
 export function BackupDialog({ aberto, onOpenChange, onRestored }: { aberto: boolean; onOpenChange: (aberto: boolean) => void; onRestored: () => void }) {
   const input = useRef<HTMLInputElement>(null);
@@ -64,6 +65,7 @@ export function BackupDialog({ aberto, onOpenChange, onRestored }: { aberto: boo
           <input ref={input} type="file" accept="application/json,.json" className="hidden" onChange={(e) => lerArquivo(e.target.files?.[0])} />
         </div>
         {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
+        <p className="pt-2 text-center text-xs text-muted-foreground">Versão do app: {ROTULO_BUILD}</p>
         {backup && (
           <div className="space-y-4 border-t pt-4">
             <div>

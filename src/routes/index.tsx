@@ -7,6 +7,7 @@ import { escolherSemanaInicial, hojeIso, intervaloDaPublicacao, ordenarSemanasCr
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BackupDialog } from "@/components/BackupDialog";
 import { Button } from "@/components/ui/button";
+import { BUILD, ROTULO_BUILD } from "@/lib/build";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -164,6 +165,10 @@ function Biblioteca() {
       </section>
 
       <div className="px-4"><Button onClick={() => setAberto(true)} size="lg" className="w-full"><Plus /> Importar estudo</Button></div>
+      <footer className="px-4 pt-6 text-center text-xs text-muted-foreground">
+        <p>Versão do app: {ROTULO_BUILD}</p>
+        {BUILD.resumo && <p className="mx-auto mt-0.5 max-w-sm">{BUILD.resumo}</p>}
+      </footer>
       <BackupDialog aberto={backup} onOpenChange={setBackup} onRestored={recarregar} />
       {aberto && <ImportModal existentes={new Set(pubs.map((p) => p.url_origem))} onClose={() => setAberto(false)} onDone={(tipo) => { setAberto(false); setAba(tipo); recarregar(); }} />}
     </main>
