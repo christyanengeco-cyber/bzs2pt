@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { EH_LINK_VIDEO_RE, extrairVideo, respostaUtil } from "@/lib/parser";
+import { EH_LINK_VIDEO_RE, extrairVideo, fetchProxy, respostaUtil } from "@/lib/parser";
 
 // Mapa url -> html usado pelo baixarPagina "mockado". Cada teste popula só o que precisa.
 const paginas = vi.hoisted(() => new Map<string, string>());
@@ -133,6 +133,45 @@ describe("extrairVideo", () => {
     );
     await expect(extrairVideo("https://www.jw.org/bzs/biblioteca/videos/#mid=999")).rejects.toThrow(
       /Não foi possível baixar/,
+    );
+  });
+});
+
+describe("fetchProxy agrega diagnóstico honesto", () => {
+  it("inclui o motivo de cada camada (servidor e proxies) na mensagem final", async () => {
+    paginas.set(
+      "https://www.jw.org/pt/teste-diagnostico/",
+      '<script src="https://x.cloudfront.net/challenge.js"></script>'.repeat(20),
+    );
+    let chamadas = 0;
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (u: string | URL) => {
+      chamadas++;
+      const host = typeof u === "string" ? new URL(u).hostname : u.hostname;
+      return new Response(`erro de ${host}`, { status: 522 });
+    });
+    const err = await fetchProxy("https://www.jw.org/pt/teste-diagnostico/").catch(
+      (e: unknown) => e as Error,
+    );
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toContain("Não foi possível baixar a página");
+    // a mensagem mostra o início do corpo do desafio — é o que o usuário cola
+    // no relato de bug para identificar a causa
+    expect((err as Error).message).toContain("challenge.js");
+    expect((err as Error).message).toContain("HTTP 522");
+    expect(chamadas).toBe(4);
+  });
+
+  it("rejeita corpo-desafio que chega com HTTP 200 pelo proxy", async () => {
+    paginas.delete("https://www.jw.org/pt/teste-diagnostico/");
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      async () =>
+        new Response(
+          '<!DOCTYPE html><html><head><script src="https://d1t8s2y7x9.cloudfront.net/challenge.js"></script></head><body>window.awswaf = true;</body></html>',
+          { status: 200 },
+        ),
+    );
+    await expect(fetchProxy("https://www.jw.org/pt/teste-diagnostico/")).rejects.toThrow(
+      /Não foi possível baixar a página/,
     );
   });
 });

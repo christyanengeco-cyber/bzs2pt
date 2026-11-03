@@ -8,13 +8,13 @@ import {
   guardarImagem,
 } from "./publication-layout";
 
-// corsproxy.io passou a exigir chave de API (responde 401), então o encadeamento agora
-// começa pelos proxies públicos sem chave e trata corpo vazio/desafio do WAF como falha.
+// corsproxy.io passou a exigir chave de API (responde 401), então saiu da lista;
+// test.cors.workers.dev é um proxy público em Cloudflare Workers sem chave.
 const PROXIES: ((u: string) => string)[] = [
   (u: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
   (u: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
   (u: string) => `https://api.cors.lol/?url=${encodeURIComponent(u)}`,
-  (u: string) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+  (u: string) => `https://test.cors.workers.dev/?${u}`,
 ];
 
 /** Páginas reais do jw.org são HTML, JSON (data-jsonurl) ou legendas VTT — nunca um corpo vazio.
@@ -53,36 +53,41 @@ export async function fetchProxy(url: string): Promise<PaginaBaixada> {
   const c = cacheFetch.get(url);
   if (c && c.expira > Date.now()) return { texto: c.texto, url: c.url };
   const erros: string[] = [];
+  const anotar = (e: string) => {
+    if (!erros.includes(e)) erros.push(e);
+  };
   try {
     const r = await baixarPagina({ data: { url } });
     if (respostaUtil(r.texto)) {
       cacheFetch.set(url, { texto: r.texto, url: r.url, expira: Date.now() + TEMPO_CACHE });
       return { texto: r.texto, url: r.url };
     }
-    erros.push("jw.org devolveu uma resposta vazia");
+    anotar(
+      `jw.org devolveu resposta inesperada: "${r.texto.slice(0, 80).replace(/\s+/g, " ")}"`,
+    );
   } catch (e) {
-    erros.push(e instanceof Error ? e.message : String(e));
+    anotar(e instanceof Error ? e.message : String(e));
   }
   for (const p of PROXIES) {
     try {
       const r = await fetch(p(url), { signal: AbortSignal.timeout(20000) });
       if (!r.ok) {
-        erros.push(`HTTP ${r.status}`);
+        anotar(`HTTP ${r.status} (${new URL(p(url)).hostname})`);
         continue;
       }
       const t = await r.text();
       if (!respostaUtil(t)) {
-        erros.push("proxy devolveu uma resposta vazia");
+        anotar("proxy devolveu uma resposta vazia");
         continue;
       }
       cacheFetch.set(url, { texto: t, url, expira: Date.now() + TEMPO_CACHE });
       return { texto: t, url };
     } catch (e) {
-      erros.push(e instanceof Error ? e.message : String(e));
+      anotar(e instanceof Error ? e.message : String(e));
     }
   }
   throw new Error(
-    `Não foi possível baixar a página (${erros.slice(0, 2).join("; ")}). Verifique sua conexão e tente de novo.`,
+    `Não foi possível baixar a página (${erros.slice(0, 3).join("; ")}). Verifique sua conexão e tente de novo.`,
   );
 }
 
