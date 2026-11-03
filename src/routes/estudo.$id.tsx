@@ -1,8 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Clock, MessageCircle, Pause, Play, Eraser, Video, EyeOff, Eye, Trash2, X, Pencil, Maximize, Minimize, RotateCcw, RotateCw, Loader2, BookOpen, ExternalLink } from "lucide-react";
+import { ArrowLeft, Clock, MessageCircle, Pause, Play, Eraser, Video, EyeOff, Eye, Trash2, X, Pencil, Maximize, Minimize, RotateCcw, RotateCw, Loader2, BookOpen, ExternalLink, Music2 } from "lucide-react";
 import { LIXO, buscarReferencia, linkEstudoLivro, resolverEstudoLivro, importarUrl, type ConteudoReferencia } from "@/lib/parser";
 import { salvarPublicacao, listarPublicacoes } from "@/lib/db";
+import { SectionIcon } from "@/components/SectionIcon";
+import { identificarSecao, mesclarEstrutura, type Secao } from "@/lib/publication-layout";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
@@ -86,14 +88,8 @@ function Leitor() {
   const visiveis = paras.filter((p) => !estaOculto(p));
   const ocultos = paras.filter(estaOculto);
   const secoes = (() => {
-    let c: string | undefined;
-    return visiveis.map((p) => {
-      const t = p.texto_portugues.toUpperCase();
-      if (/TESOUROS DA PALAVRA/.test(t)) c = "var(--sec-tesouros)";
-      else if (/FA[ÇC]A SEU MELHOR/.test(t)) c = "var(--sec-ministerio)";
-      else if (/NOSSA VIDA CRIST/.test(t)) c = "var(--sec-vida)";
-      return c;
-    });
+    let secao: Secao | undefined;
+    return visiveis.map((p) => { secao = identificarSecao(p.texto_portugues) ?? secao; return secao; });
   })();
   async function definirOculto(p: Paragrafo, oculto: boolean) {
     const np = { ...p, oculto };
@@ -102,9 +98,21 @@ function Leitor() {
   }
 
   useEffect(() => {
-    getPublicacao(id).then((p) => setPub(p ?? null));
-    listarParagrafos(id).then(setParas);
-    listarAnotacoes(id).then(setNotas);
+    let vivo = true;
+    Promise.all([getPublicacao(id), listarParagrafos(id), listarAnotacoes(id)]).then(async ([p, ps, ns]) => {
+      if (!vivo) return;
+      setPub(p ?? null); setParas(ps); setNotas(ns);
+      if (!p || p.layout_versao === 1 || !navigator.onLine) return;
+      try {
+        const atualizado = await importarUrl(p.url_origem);
+        if (!vivo) return;
+        const mesclados = mesclarEstrutura(ps, atualizado.paragrafos, id);
+        const np = { ...p, layout_versao: 1 };
+        await salvarPublicacao(np, mesclados);
+        setPub(np); setParas(mesclados);
+      } catch { /* O estudo antigo permanece disponível offline. */ }
+    });
+    return () => { vivo = false; };
   }, [id]);
 
   const seekTo = (s: number) => {
@@ -127,7 +135,7 @@ function Leitor() {
   };
   const alternar = () => {
     const v = video.current; if (!v) return;
-    if (v.paused) { v.play().catch(() => {}); mostrarHud("▶"); } else { v.pause(); mostrarHud("❚❚"); }
+    if (v.paused) { v.play().catch(() => {}); mostrarHud("play"); } else { v.pause(); mostrarHud("pause"); }
     cutucar();
   };
   const onTouchStart = (e: React.TouchEvent) => {
@@ -252,7 +260,7 @@ function Leitor() {
         )}
         {hud && (
           <div aria-live="polite" className="pointer-events-none absolute left-3 top-14 z-10 rounded-md bg-background/70 px-2 py-0.5 text-xs font-bold tabular-nums backdrop-blur">
-            {hud}
+            {hud === "play" ? <Play className="h-4 w-4" /> : hud === "pause" ? <Pause className="h-4 w-4" /> : hud}
           </div>
         )}
         {pub.video_url && (
@@ -280,9 +288,9 @@ function Leitor() {
 
       {/* TEXTO 65% */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-2xl px-4 pb-24 pt-5" style={{ fontSize: "calc(1rem * var(--escala-texto, 1))" }}>
-          <p className="text-xs font-bold uppercase text-section">{pub.semana}</p>
-          <h1 className="mb-5 text-2xl font-bold leading-tight">{pub.titulo}</h1>
+        <div className={`publication-reader mx-auto max-w-2xl pb-24 pt-5 ${pub.tipo === "apostila" ? "workbook-reader" : "watchtower-reader"}`} style={{ fontSize: "calc(1rem * var(--escala-texto, 1))" }}>
+          <h1 className="publication-title">{pub.titulo}</h1>
+          {pub.tipo !== "apostila" && <p className="publication-week">{pub.semana}</p>}
           {modoTempo && (
             <p className="mb-4 rounded-xl bg-accent p-3 text-sm text-accent-foreground">
               Modo de edição ligado: o relógio em cada trecho grava o tempo atual do vídeo e o olho oculta o trecho. Toque no lápis do topo para sair.
@@ -290,7 +298,8 @@ function Leitor() {
           )}
           {visiveis.map((p, i) => (
             <ParagrafoView
-              cor={pub.tipo === "apostila" ? secoes[i] : undefined}
+              secao={pub.tipo === "apostila" ? secoes[i] : undefined}
+              apostila={pub.tipo === "apostila"}
               anterior={pub.tipo === "apostila" ? (visiveis[i - 1]?.texto_portugues ?? "") : ""}
               key={p.id}
               p={p}
@@ -303,7 +312,7 @@ function Leitor() {
                 if (!href.startsWith("livro:")) return setRef({ href, texto });
                 const [, code, n] = href.split(":");
                 (async () => {
-                  const u = (await resolverEstudoLivro(code!, Number(n))).split("#")[0]!;
+                  const u = (await resolverEstudoLivro(code ?? "", Number(n))).split("#")[0] ?? "";
                   const ex = (await listarPublicacoes()).find((x) => x.url_origem === u);
                   if (ex) return navLivro({ to: "/estudo/$id", params: { id: ex.id } });
                   const r = await importarUrl(u);
@@ -392,7 +401,7 @@ function renderMarcado(texto: string, marcas: Anotacao[], onMarca: (m: Anotacao)
     const l = (links ?? []).find((x) => x.inicio <= ini && x.fim >= fim);
     if (l && onRef) node = <span className="text-reference underline decoration-reference/40 underline-offset-2" onClick={(e) => { if (window.getSelection()?.toString()) return; e.stopPropagation(); onRef(l.href, texto.slice(l.inicio, l.fim)); }}>{node}</span>;
     const m = [...ms].reverse().find((x) => (x.inicio ?? 0) <= ini && (x.fim ?? texto.length) >= fim);
-    if (m) node = <mark style={{ background: m.cor_destaque }} className="cursor-pointer rounded-sm font-medium text-black" onClick={(e) => { if (window.getSelection()?.toString()) return; e.stopPropagation(); onMarca(m); }}>{node}</mark>;
+    if (m) node = <mark style={{ background: m.cor_destaque }} className="cursor-pointer rounded-sm font-medium text-hl-ink" onClick={(e) => { if (window.getSelection()?.toString()) return; e.stopPropagation(); onMarca(m); }}>{node}</mark>;
     out.push(<span key={ini}>{node}</span>);
   }
   return out;
@@ -487,14 +496,14 @@ function PainelReferencia({ href, texto, pubId, onClose }: { href: string; texto
   );
 }
 
-function ParagrafoView({ cor, anterior = "", p, ativo, acompanhando, notas, temVideo, modoTempo, onRef, onTap, onOcultar, onMarca, onSelect, onSync, onNotas }: {
-  cor?: string | undefined; anterior?: string; p: Paragrafo; ativo: boolean; acompanhando: boolean; notas: Anotacao[]; temVideo: boolean; modoTempo: boolean;
+function ParagrafoView({ secao, apostila, anterior = "", p, ativo, acompanhando, notas, temVideo, modoTempo, onRef, onTap, onOcultar, onMarca, onSelect, onSync, onNotas }: {
+  secao?: Secao | undefined; apostila: boolean; anterior?: string; p: Paragrafo; ativo: boolean; acompanhando: boolean; notas: Anotacao[]; temVideo: boolean; modoTempo: boolean;
   onRef: (href: string, t: string) => void; onTap: () => void; onOcultar: () => void; onMarca: (m: Anotacao) => void; onSelect: (el: HTMLElement) => void; onSync: () => void;
   onNotas: React.Dispatch<React.SetStateAction<Anotacao[]>>;
 }) {
   const ref = useRef<HTMLParagraphElement>(null);
   const nota = notas.find((n) => n.tipo === "nota");
-  const [aberto, setAberto] = useState(false);
+  const [aberto, setAberto] = useState(Boolean(p.resposta));
   const [texto, setTexto] = useState(nota?.texto_comentario ?? "");
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -524,23 +533,26 @@ function ParagrafoView({ cor, anterior = "", p, ativo, acompanhando, notas, temV
   const temDestaque = notas.some((n) => n.tipo === "destaque");
   const livro = linkEstudoLivro(p.texto_portugues, anterior);
   const links = livro ? [...(p.links ?? []).filter((l) => !(l.inicio < livro.fim && l.fim > livro.inicio)), livro].sort((a, b) => a.inicio - b.inicio) : p.links;
-  const titulo = cor && (p.pergunta || /^\d+\.\s/.test(p.texto_portugues) || (p.texto_portugues.length < 60 && p.texto_portugues === p.texto_portugues.toUpperCase()));
-  if (p.imagem) return <img src={p.imagem} alt="" loading="lazy" className="mb-3 w-full rounded-lg" />;
+  const secaoTitulo = identificarSecao(p.texto_portugues);
+  const estilo = p.estilo ?? (secaoTitulo ? "secao" : /^\d+\.\s/.test(p.texto_portugues) && apostila ? "titulo" : /Cântico|Comentários finais/i.test(p.texto_portugues) && apostila ? "cantico" : "corpo");
+  if (estilo === "semana") return null;
+  if (p.imagem) return <figure className="publication-image"><img src={p.imagem} alt={p.imagem_alt ?? ""} loading="lazy" /></figure>;
 
   return (
-    <div aria-current={ativo ? "true" : undefined} className={`mb-2 border-l-2 px-3 py-2 transition ${ativo ? "border-primary bg-selection" : "border-transparent"}`}>
+    <div data-secao={secao} data-estilo={estilo} data-faixa={p.faixa || undefined} aria-current={ativo ? "true" : undefined} className={`publication-paragraph ${apostila ? "workbook-paragraph" : "watchtower-paragraph"} ${p.pergunta ? "publication-question" : ""} ${ativo ? "publication-active" : ""}`}>
+      {secaoTitulo && <span className="publication-section-icon"><SectionIcon secao={secaoTitulo} /></span>}
+      {estilo === "cantico" && <Music2 className="publication-music h-5 w-5" aria-hidden="true" />}
       <p
         ref={ref}
         onClick={() => { if (!window.getSelection()?.toString()) onTap(); }}
         data-par={p.id}
         onMouseUp={() => ref.current && onSelect(ref.current)}
-         style={titulo ? { color: cor } : undefined}
-         className={`cursor-pointer select-text leading-relaxed ${titulo ? "font-bold" : p.pergunta ? "text-[1em] font-bold text-section" : "text-[1.1em]"}`}
+         className="publication-text cursor-pointer select-text"
       >
         {renderMarcado(p.texto_portugues, notas, onMarca, links, onRef)}
       </p>
-      <div className="mt-1 flex items-center gap-1 text-muted-foreground">
-        {temVideo && (
+      <div className="publication-tools flex items-center gap-1 text-muted-foreground">
+        {temVideo && modoTempo && (
           <span className="mr-auto flex items-center gap-1 text-xs tabular-nums">
             <Video className="h-3 w-3" /> {fmt(p.timestamp_inicio)}
           </span>
@@ -567,9 +579,9 @@ function ParagrafoView({ cor, anterior = "", p, ativo, acompanhando, notas, temV
         {modoTempo && <Button variant="ghost" size="icon" aria-label="Ocultar trecho" title="Ocultar" onClick={() => { if (confirm("Ocultar este trecho? Você pode mostrar de novo em Itens ocultos.")) onOcultar(); }}>
           <EyeOff className="h-4 w-4" />
         </Button>}
-        <button aria-label="Anotação" onClick={() => setAberto((a) => !a)} className={`rounded-lg p-1.5 hover:bg-secondary ${texto ? "text-primary" : ""}`}>
+        <Button variant="ghost" size="icon" aria-label="Anotação" onClick={() => setAberto((a) => !a)} className={`ml-auto h-7 w-7 ${texto ? "text-primary" : ""}`}>
           <MessageCircle className="h-4 w-4" fill={texto ? "currentColor" : "none"} />
-        </button>
+        </Button>
       </div>
       {aberto && (
         <textarea

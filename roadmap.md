@@ -1,5 +1,10 @@
 # Roadmap
 
+- [x] Corrigir datas com ordinais e semanas já importadas
+- [x] Recuperar imagens da publicação e preservar uso offline
+- [x] Reproduzir divisões do leitor JW Library com ícones SVG e preservar ferramentas
+- [x] Validar datas, importação e leitura no navegador
+
 - [x] Aplicar a referência visual do JW Library e as 16 cores de destaque
 - [x] Ordenar semanas da anterior à próxima e validar a seleção automática
 - [x] Validar aparência, persistência e leitura no navegador

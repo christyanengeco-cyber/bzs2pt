@@ -15,3 +15,5 @@
 - Backups use a versioned JSON envelope and restore transactionally, because all user data remains local and future formats must stay recoverable.
 - Appearance preferences use a shared browser-safe module and semantic CSS tokens, because the library and reader must preserve the same user-selected accent offline.
 - Week navigation sorts dated studies chronologically independently of default week selection, because previous weeks belong on the left and upcoming weeks on the right.
+- Publication layout metadata is stored with paragraphs and recovered by matching original text while preserving paragraph IDs, because imported studies must gain images and editorial structure without losing notes or timestamps.
+- Imported image bytes are stored as data URLs in existing paragraph records when fetch succeeds, because offline reading and versioned JSON backups must include illustrations without a separate storage format.

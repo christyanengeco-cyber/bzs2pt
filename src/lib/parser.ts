@@ -1,6 +1,7 @@
 import { uid, type Paragrafo, type Publicacao, type TipoPub } from "./db";
 import { baixarPagina } from "./fetch-page.functions";
 import { extrairIntervaloSemana } from "./study-dates";
+import { elementosPublicacao, imagemDoElemento, estruturaDoElemento, guardarImagem } from "./publication-layout";
 
 const PROXIES = [
   (u: string) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
@@ -117,10 +118,8 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
     doc.querySelector('meta[property="og:title"]')?.getAttribute("content") ||
     doc.title || "Sem título";
   const bodyText = doc.body?.textContent ?? "";
-  const semanaMatch =
-    doc.querySelector(".contextTtl, .pubRefs, header p, .du-color--textSubdued")?.textContent?.match(/\d{1,2}(?:\s*(?:de\s+\w+)?\s*[-–a]\s*\d{1,2})?\s+de\s+\w+(?:\s+de\s+\d{4})?/i) ||
-    bodyText.match(/(?:SEMANA DE\s*)?\d{1,2}(?:\s*(?:de\s+\w+)?)?\s*[-–]\s*\d{1,2}\s+de\s+\w+(?:\s+de\s+\d{4})?/i);
-  const semana = semanaMatch?.[0].trim() ?? new Date().toLocaleDateString("pt-BR");
+  const intervaloRe = /\d{1,2}(?:\s*\.?[º°])?(?:\s+de\s+\w+)?\s*[-–a]\s*\d{1,2}(?:\s*\.?[º°])?\s+de\s+\w+(?:\s+de\s+\d{4})?/i;
+  const semana = [titulo, doc.querySelector(".contextTtl, .pubRefs")?.textContent ?? "", bodyText].map((t) => t.match(intervaloRe)?.[0]).find(Boolean) ?? new Date().toLocaleDateString("pt-BR");
   const anoUrl = url.match(/(?:19|20)\d{2}/)?.[0];
   const intervalo = extrairIntervaloSemana(semana, anoUrl ? Number(anoUrl) : new Date().getFullYear());
 
@@ -173,18 +172,15 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
   }
 
   // 4. parágrafos e perguntas
-  const root = doc.querySelector("article, #article, .docSubContent, main") || doc.body;
-  const nodes = Array.from(root.querySelectorAll("p[data-pid], p.qu, p.p, p.sb, h2, h3, p, figure img")).filter(
-    (el, i, arr) => arr.indexOf(el) === i && !el.closest(el.tagName === "IMG" ? "nav, footer, header" : "nav, footer, header, figure, .footnote, .jsRelatedPubs"),
-  );
+  const nodes = elementosPublicacao(doc);
   const seen = new Set<Element>();
-  const textos: { texto: string; imagem?: string; pergunta: boolean; pid?: string | undefined; links: { inicio: number; fim: number; href: string }[] }[] = [];
+  const textos: { estrutura?: ReturnType<typeof estruturaDoElemento>; imagem_alt?: string; texto: string; imagem?: string; pergunta: boolean; pid?: string | undefined; links: { inicio: number; fim: number; href: string }[] }[] = [];
   for (const el of nodes) {
     if (seen.has(el)) continue;
     seen.add(el);
-    if (el.tagName === "IMG") {
-      const src = el.getAttribute("data-img-size-lg") || el.getAttribute("data-img-size-md") || el.getAttribute("src");
-      if (src && !src.startsWith("data:")) textos.push({ texto: "", imagem: abs(src), pergunta: false, links: [] });
+    if (el.tagName === "IMG" || el.classList.contains("jsRespImg")) {
+      const imagem = imagemDoElemento(el, url);
+      if (imagem) textos.push({ texto: "", imagem: await guardarImagem(imagem), imagem_alt: el.getAttribute("data-img-att-alt") || el.getAttribute("alt") || "", estrutura: estruturaDoElemento(el), pergunta: false, links: [] });
       continue;
     }
     const t = el.textContent?.replace(/\s+/g, " ").trim() ?? "";
@@ -201,7 +197,7 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
       links.push({ inicio: i, fim: i + at.length, href: abs(href) });
       pos = i + at.length;
     });
-    textos.push({ texto: t, pergunta, pid: el.getAttribute("data-pid") ?? undefined, links });
+    textos.push({ estrutura: estruturaDoElemento(el), texto: t, pergunta, pid: el.getAttribute("data-pid") ?? undefined, links });
   }
   if (!textos.some((t) => t.texto)) throw new Error("Nenhum parágrafo encontrado nesta página.");
 
@@ -217,6 +213,8 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
       publicacao_id: pubId,
       numero_ordem: i,
       texto_portugues: t.texto,
+      ...t.estrutura,
+      ...(t.imagem_alt ? { imagem_alt: t.imagem_alt } : {}),
       pergunta: t.pergunta,
       oculto: LIXO.test(t.texto),
       timestamp_inicio: ts,
@@ -228,7 +226,7 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
 
   return {
     publicacao: {
-      id: pubId, tipo, titulo, semana,
+      id: pubId, tipo, titulo, semana, layout_versao: 1,
       ...(intervalo ? { semana_inicio: intervalo.inicio, semana_fim: intervalo.fim } : {}),
       url_origem: url, video_url, criado_em: Date.now(),
     },
