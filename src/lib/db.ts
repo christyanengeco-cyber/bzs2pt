@@ -12,6 +12,7 @@ export interface Publicacao {
   video_url: string;
   pai_id?: string;
   criado_em: number;
+  layout_versao?: number;
 }
 export interface Paragrafo {
   id: string;
@@ -22,6 +23,11 @@ export interface Paragrafo {
   pergunta?: boolean;
   rotulo?: string;
   imagem?: string;
+  imagem_alt?: string;
+  estilo?: "semana" | "secao" | "subtitulo" | "titulo" | "cantico" | "corpo" | "legenda";
+  faixa?: boolean;
+  resposta?: boolean;
+  meps_id?: string;
   oculto?: boolean;
   links?: { inicio: number; fim: number; href: string }[];
 }
