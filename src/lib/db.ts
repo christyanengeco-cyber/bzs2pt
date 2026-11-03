@@ -24,10 +24,10 @@ export interface Paragrafo {
   rotulo?: string;
   imagem?: string;
   imagem_alt?: string;
-  estilo?: "semana" | "secao" | "subtitulo" | "titulo" | "cantico" | "corpo" | "legenda";
-  faixa?: boolean;
-  resposta?: boolean;
-  meps_id?: string;
+  estilo?: "semana" | "secao" | "subtitulo" | "titulo" | "cantico" | "corpo" | "legenda" | undefined;
+  faixa?: boolean | undefined;
+  resposta?: boolean | undefined;
+  meps_id?: string | undefined;
   oculto?: boolean;
   links?: { inicio: number; fim: number; href: string }[];
 }

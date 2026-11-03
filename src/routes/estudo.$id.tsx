@@ -497,7 +497,7 @@ function PainelReferencia({ href, texto, pubId, onClose }: { href: string; texto
 }
 
 function ParagrafoView({ secao, apostila, anterior = "", p, ativo, acompanhando, notas, temVideo, modoTempo, onRef, onTap, onOcultar, onMarca, onSelect, onSync, onNotas }: {
-  secao?: Secao; apostila: boolean; anterior?: string; p: Paragrafo; ativo: boolean; acompanhando: boolean; notas: Anotacao[]; temVideo: boolean; modoTempo: boolean;
+  secao?: Secao | undefined; apostila: boolean; anterior?: string; p: Paragrafo; ativo: boolean; acompanhando: boolean; notas: Anotacao[]; temVideo: boolean; modoTempo: boolean;
   onRef: (href: string, t: string) => void; onTap: () => void; onOcultar: () => void; onMarca: (m: Anotacao) => void; onSelect: (el: HTMLElement) => void; onSync: () => void;
   onNotas: React.Dispatch<React.SetStateAction<Anotacao[]>>;
 }) {

@@ -5,6 +5,7 @@ export function identificarSecao(texto: string): Secao | undefined {
   if (/TESOUROS DA PALAVRA/i.test(texto)) return "tesouros";
   if (/FA[ÇC]A SEU MELHOR/i.test(texto)) return "ministerio";
   if (/NOSSA VIDA CRIST/i.test(texto)) return "vida";
+  return undefined;
 }
 
 export function elementosPublicacao(doc: Document) {
