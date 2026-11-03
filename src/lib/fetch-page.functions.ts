@@ -25,9 +25,13 @@ export const baixarPagina = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     let motivo = "";
     let diagnostico = "";
-    // 3 tentativas: o desafio do WAF costuma passar na segunda ou terceira,
-    // e quedas momentâneas de rede não devem derrubar a importação.
-    for (let tentativa = 0; tentativa < 3; tentativa++) {
+    // Prazo total de ~55s: tentativas de até 30s cada (o jw.org anda lento; o
+    // timeout curto de 15s causava "signal timed out"). O desafio do WAF costuma
+    // passar na segunda tentativa, então continuamos enquanto houver prazo.
+    const PRAZO_TOTAL = 55000;
+    const inicio = Date.now();
+    for (let tentativa = 0; Date.now() - inicio < PRAZO_TOTAL; tentativa++) {
+      const restante = PRAZO_TOTAL - (Date.now() - inicio);
       try {
         const r = await fetch(data.url, {
           headers: {
@@ -36,7 +40,7 @@ export const baixarPagina = createServerFn({ method: "POST" })
             "Accept-Language": "pt-BR,pt;q=0.9",
           },
           redirect: "follow",
-          signal: AbortSignal.timeout(15000),
+          signal: AbortSignal.timeout(Math.min(restante - 1000, 30000)),
         });
         // O WAF da CloudFront responde 202 (que é "ok" para fetch) com corpo vazio
         // quando desafia o cliente.
@@ -64,8 +68,14 @@ export const baixarPagina = createServerFn({ method: "POST" })
         }
         return { texto, url: r.url };
       } catch (e) {
-        motivo = e instanceof Error ? e.message : String(e);
-        await pausa(700 * (tentativa + 1));
+        const nome = e instanceof Error ? `${e.name} ${e.message}` : String(e);
+        motivo =
+          /timeout|timed out|abort/i.test(nome)
+            ? "o jw.org demorou demais para responder (tempo esgotado)"
+            : e instanceof Error
+              ? e.message
+              : String(e);
+        await pausa(1500);
       }
     }
     if (diagnostico) motivo += ` — início da resposta: "${diagnostico}"`;
