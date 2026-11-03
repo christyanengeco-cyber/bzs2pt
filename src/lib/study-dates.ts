@@ -16,9 +16,19 @@ function isoLocal(ano: number, mes: number, dia: number) {
 }
 
 export function extrairIntervaloSemana(texto: string, anoReferencia = new Date().getFullYear()) {
-  const limpo = normalizar(texto).replace(/\s+/g, " ");
+  const limpo = normalizar(texto).replace(/(\d)\s*\.?[º°ª]/g, "$1").replace(/\s+/g, " ");
   const match = limpo.match(/(\d{1,2})(?:\s+de\s+([a-z]+))?\s*[-–a]\s*(\d{1,2})\s+de\s+([a-z]+)(?:\s+de\s+(\d{4}))?/i);
-  if (!match) return null;
+  if (!match) {
+    const unico = limpo.match(/^(?:semana de\s+)?(\d{1,2})\s+de\s+([a-z]+)(?:\s+de\s+(\d{4}))?$/);
+    if (!unico) return null;
+    const mes = MESES[unico[2] ?? ""];
+    const ano = unico[3] ? Number(unico[3]) : anoReferencia;
+    if (mes == null) return null;
+    const inicio = isoLocal(ano, mes, Number(unico[1]));
+    if (!inicio) return null;
+    const fim = new Date(ano, mes, Number(unico[1]) + 6, 12);
+    return { inicio, fim: hojeIso(fim) };
+  }
   const diaInicio = Number(match[1]);
   const diaFim = Number(match[3]);
   const mesFim = MESES[match[4] ?? ""];
@@ -28,15 +38,17 @@ export function extrairIntervaloSemana(texto: string, anoReferencia = new Date()
   const anoInicio = mesInicio > mesFim ? anoFim - 1 : anoFim;
   const inicio = isoLocal(anoInicio, mesInicio, diaInicio);
   const fim = isoLocal(anoFim, mesFim, diaFim);
-  return inicio && fim ? { inicio, fim } : null;
+  return inicio && fim && inicio <= fim ? { inicio, fim } : null;
 }
 
 export function intervaloDaPublicacao(publicacao: Publicacao) {
+  const anoUrl = publicacao.url_origem.match(/(?:19|20)\d{2}/)?.[0];
+  const interpretado = extrairIntervaloSemana(publicacao.semana, anoUrl ? Number(anoUrl) : new Date(publicacao.criado_em).getFullYear());
+  if (interpretado) return interpretado;
   if (publicacao.semana_inicio && publicacao.semana_fim) {
     return { inicio: publicacao.semana_inicio, fim: publicacao.semana_fim };
   }
-  const anoUrl = publicacao.url_origem.match(/(?:19|20)\d{2}/)?.[0];
-  return extrairIntervaloSemana(publicacao.semana, anoUrl ? Number(anoUrl) : new Date(publicacao.criado_em).getFullYear());
+  return null;
 }
 
 export function hojeIso(data = new Date()) {
