@@ -1,23 +1,41 @@
 import type { Publicacao } from "./db";
 
 const MESES: Record<string, number> = {
-  janeiro: 0, fevereiro: 1, marco: 2, abril: 3, maio: 4, junho: 5,
-  julho: 6, agosto: 7, setembro: 8, outubro: 9, novembro: 10, dezembro: 11,
+  janeiro: 0,
+  fevereiro: 1,
+  marco: 2,
+  abril: 3,
+  maio: 4,
+  junho: 5,
+  julho: 6,
+  agosto: 7,
+  setembro: 8,
+  outubro: 9,
+  novembro: 10,
+  dezembro: 11,
 };
 
 function normalizar(texto: string) {
-  return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }
 
 function isoLocal(ano: number, mes: number, dia: number) {
   const data = new Date(ano, mes, dia, 12);
-  if (data.getFullYear() !== ano || data.getMonth() !== mes || data.getDate() !== dia) return undefined;
+  if (data.getFullYear() !== ano || data.getMonth() !== mes || data.getDate() !== dia)
+    return undefined;
   return `${ano}-${String(mes + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
 }
 
 export function extrairIntervaloSemana(texto: string, anoReferencia = new Date().getFullYear()) {
-  const limpo = normalizar(texto).replace(/(\d)\s*\.?[º°ª]/g, "$1").replace(/\s+/g, " ");
-  const match = limpo.match(/(\d{1,2})(?:\s+de\s+([a-z]+))?\s*[-–a]\s*(\d{1,2})\s+de\s+([a-z]+)(?:\s+de\s+(\d{4}))?/i);
+  const limpo = normalizar(texto)
+    .replace(/(\d)\s*\.?[º°ª]/g, "$1")
+    .replace(/\s+/g, " ");
+  const match = limpo.match(
+    /(\d{1,2})(?:\s+de\s+([a-z]+))?\s*[-–a]\s*(\d{1,2})\s+de\s+([a-z]+)(?:\s+de\s+(\d{4}))?/i,
+  );
   if (!match) {
     const unico = limpo.match(/^(?:semana de\s+)?(\d{1,2})\s+de\s+([a-z]+)(?:\s+de\s+(\d{4}))?$/);
     if (!unico) return null;
@@ -43,7 +61,10 @@ export function extrairIntervaloSemana(texto: string, anoReferencia = new Date()
 
 export function intervaloDaPublicacao(publicacao: Publicacao) {
   const anoUrl = publicacao.url_origem.match(/(?:19|20)\d{2}/)?.[0];
-  const interpretado = extrairIntervaloSemana(publicacao.semana, anoUrl ? Number(anoUrl) : new Date(publicacao.criado_em).getFullYear());
+  const interpretado = extrairIntervaloSemana(
+    publicacao.semana,
+    anoUrl ? Number(anoUrl) : new Date(publicacao.criado_em).getFullYear(),
+  );
   if (interpretado) return interpretado;
   if (publicacao.semana_inicio && publicacao.semana_fim) {
     return { inicio: publicacao.semana_inicio, fim: publicacao.semana_fim };
@@ -76,7 +97,10 @@ export function ordenarSemanasCronologicamente(a: Publicacao, b: Publicacao) {
 export function escolherSemanaInicial(publicacoes: Publicacao[], hoje = hojeIso()) {
   const datadas = publicacoes
     .map((publicacao) => ({ publicacao, intervalo: intervaloDaPublicacao(publicacao) }))
-    .filter((item): item is { publicacao: Publicacao; intervalo: { inicio: string; fim: string } } => Boolean(item.intervalo));
+    .filter(
+      (item): item is { publicacao: Publicacao; intervalo: { inicio: string; fim: string } } =>
+        Boolean(item.intervalo),
+    );
   const atual = datadas.find(({ intervalo }) => intervalo.inicio <= hoje && intervalo.fim >= hoje);
   if (atual) return { id: atual.publicacao.id, atual: true };
   const anterior = datadas

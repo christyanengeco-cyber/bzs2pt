@@ -5,7 +5,8 @@
 export const BUILD = {
   versao: "1.2.0",
   data: "04/11/2026",
-  resumo: "Importação por arquivo salvo do navegador (funciona mesmo com jw.org bloqueando servidores)",
+  resumo:
+    "Importação por arquivo salvo do navegador (funciona mesmo com jw.org bloqueando servidores)",
 };
 
 export const ROTULO_BUILD = `v${BUILD.versao} · ${BUILD.data}`;
