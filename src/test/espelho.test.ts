@@ -19,6 +19,12 @@ describe("urlEspelho", () => {
       "https://b-jw-cdn-org.translate.goog/apis/pub-media/GETPUBMEDIALINKS?pub=mwb&_x_tr_sl=auto&_x_tr_tl=en&_x_tr_hl=en&_x_tr_pto=wapp",
     );
   });
+
+  it("aceita modo alternativo para escapar do limite de rajada", () => {
+    expect(urlEspelho("https://www.jw.org/pt/x/", "nv")).toBe(
+      "https://www-jw-org.translate.goog/pt/x/?_x_tr_sl=auto&_x_tr_tl=en&_x_tr_hl=en&_x_tr_pto=nv",
+    );
+  });
 });
 
 describe("desfazerEspelho", () => {

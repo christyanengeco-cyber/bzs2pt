@@ -9,14 +9,18 @@
  *  O HTML do espelho vem com os links reescritos; `desfazerEspelho` os
  *  devolve ao formato original do jw.org antes do parser. */
 
-const PARAMS_ESPELHO = "_x_tr_sl=auto&_x_tr_tl=en&_x_tr_hl=en&_x_tr_pto=wapp";
+/** Modos de espelho que o Google aceita; alternar entre eles evita o limite
+ *  de rajada (google.com/sorry) que derruba um modo repetido demais. */
+export const MODOS_ESPELHO = ["wapp", "nv", "ann"];
+
+const PARAMS_ESPELHO = (modo: string) => `_x_tr_sl=auto&_x_tr_tl=en&_x_tr_hl=en&_x_tr_pto=${modo}`;
 
 /** www.jw.org/pt/x?a=b → https://www-jw-org.translate.goog/pt/x?a=b&_x_tr_…
  *  (o espelho devolve o HTML original; os parâmetros só dirigem o tradutor). */
-export function urlEspelho(u: string): string {
+export function urlEspelho(u: string, modo = MODOS_ESPELHO[0]!): string {
   const x = new URL(u);
   const host = x.hostname.replaceAll(".", "-");
-  const consulta = x.search ? `${x.search.slice(1)}&${PARAMS_ESPELHO}` : PARAMS_ESPELHO;
+  const consulta = x.search ? `${x.search.slice(1)}&${PARAMS_ESPELHO(modo)}` : PARAMS_ESPELHO(modo);
   return `https://${host}.translate.goog${x.pathname}?${consulta}`;
 }
 

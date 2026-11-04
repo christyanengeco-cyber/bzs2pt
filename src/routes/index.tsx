@@ -508,9 +508,12 @@ function ImportModal({
     setErro("");
     setCarregando(true);
     setLote({ total: lista.length, feitos: 0 });
-    for (const artigo of lista) {
-      await importarUm(artigo.url);
+    for (let i = 0; i < lista.length; i++) {
+      await importarUm(lista[i]!.url);
       setLote((l) => ({ ...l, feitos: l.feitos + 1 }));
+      // Pausa entre artigos: rajada seguida de descargas aciona o limite do
+      // espelho do Google e derruba os últimos do lote (foi o que acontecia).
+      if (i < lista.length - 1) await new Promise((r) => setTimeout(r, 1200));
     }
     setCarregando(false);
   }

@@ -73,7 +73,7 @@ export async function fetchProxy(url: string): Promise<PaginaBaixada> {
   }
   for (const p of PROXIES) {
     try {
-      const r = await fetch(p(url), { signal: AbortSignal.timeout(20000) });
+      const r = await fetch(p(url), { signal: AbortSignal.timeout(10000) });
       if (!r.ok) {
         anotar(`HTTP ${r.status} (${new URL(p(url)).hostname})`);
         continue;
@@ -117,15 +117,27 @@ export async function listarArtigos(url: string): Promise<ArtigoRevista[]> {
     } catch {
       return;
     }
-    if (u.hostname !== base.hostname || !u.pathname.startsWith(basePath) || u.pathname === basePath)
+    // Sumários de estudo linkam artigos por /open?docid=…&prefer=content
+    // (redirecionam ao endereço real); sem aceitar esses links a seleção
+    // da edição saía vazia.
+    const ehDocid =
+      u.hostname === base.hostname && u.pathname === "/open" && u.searchParams.has("docid");
+    if (
+      !ehDocid &&
+      (u.hostname !== base.hostname || !u.pathname.startsWith(basePath) || u.pathname === basePath)
+    )
       return;
-    const href = u.origin + u.pathname;
+    const href = ehDocid ? u.origin + u.pathname + u.search : u.origin + u.pathname;
     const t = a.textContent?.replace(/\s+/g, " ").trim() ?? "";
     if (t.length > (vistos.get(href)?.length ?? 0)) vistos.set(href, t);
   });
   return Array.from(vistos, ([u, t]) => ({
     url: u,
-    titulo: t || decodeURIComponent(u.split("/").filter(Boolean).pop() ?? "").replace(/-/g, " "),
+    titulo:
+      t ||
+      (u.includes("docid=")
+        ? `Artigo ${new URL(u).searchParams.get("docid")}`
+        : decodeURIComponent(u.split("/").filter(Boolean).pop() ?? "").replace(/-/g, " ")),
   }));
 }
 
