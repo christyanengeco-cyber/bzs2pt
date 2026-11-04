@@ -174,6 +174,56 @@ function findMarkers(obj: unknown, out: Marker[] = []): Marker[] {
   return out;
 }
 
+/** Itens de mídia do GETPUBMEDIALINKS (um por faixa/resolução), com docid/track próprios. */
+export interface ItemMidia {
+  url: string;
+  docid?: string | undefined;
+  track?: string | undefined;
+  markers: Marker[];
+}
+export function findItensMidia(obj: unknown, out: ItemMidia[] = []): ItemMidia[] {
+  if (Array.isArray(obj)) obj.forEach((o) => findItensMidia(o, out));
+  else if (obj && typeof obj === "object") {
+    const o = obj as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const u = o.file?.url;
+    if (typeof u === "string" && /\.mp4(\?|$)/i.test(u)) {
+      out.push({
+        url: u,
+        docid: o.docid != null && String(o.docid) !== "0" ? String(o.docid) : undefined,
+        track: o.track != null ? String(o.track) : undefined,
+        markers: o.markers ? findMarkers(o.markers) : [],
+      });
+    } else Object.values(o).forEach((v) => findItensMidia(v, out));
+  }
+  return out;
+}
+
+/** docid do próprio documento (classe docId-NNN no body/article ou data-docid). */
+export function docIdDaPagina(doc: Document): string | undefined {
+  const cls = [doc.body?.className ?? "", doc.querySelector("article")?.className ?? ""].join(" ");
+  return (
+    cls.match(/docId-(\d+)/i)?.[1] ||
+    doc.querySelector("[data-docid]")?.getAttribute("data-docid")?.match(/\d+/)?.[0] ||
+    undefined
+  );
+}
+
+/** Escolhe o vídeo e os marcadores somente da faixa/documento desta página. */
+export function selecionarFaixa(
+  itens: ItemMidia[],
+  docId?: string,
+  track?: string,
+): { mp4: string; markers: Marker[] } | undefined {
+  let sel: ItemMidia[] = [];
+  if (docId) sel = itens.filter((i) => i.docid === docId);
+  if (!sel.length && track) sel = itens.filter((i) => i.track === track);
+  if (!sel.length) return undefined;
+  const mp4 = escolherMp4(sel.map((i) => i.url));
+  if (!mp4) return undefined;
+  const markers = sel.find((i) => i.markers.length)?.markers ?? [];
+  return { mp4, markers };
+}
+
 function parseVtt(vtt: string): number[] {
   const res: number[] = [];
   for (const m of vtt.matchAll(/(\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3}\s*-->/g))
@@ -391,24 +441,41 @@ export async function importarHtml(html: string, urlOrigem: string): Promise<Res
   const jsonUrls = Array.from(doc.querySelectorAll("[data-jsonurl]")).map((e) =>
     abs(e.getAttribute("data-jsonurl")!),
   );
-  const docId = jsonUrls.map((u) => u.match(/docid=(\d+)/)?.[1]).find(Boolean);
+  const docId =
+    docIdDaPagina(doc) || jsonUrls.map((u) => u.match(/docid=(\d+)/)?.[1]).find(Boolean);
+  const trackPagina = jsonUrls
+    .filter((u) => /mp4/i.test(u))
+    .map((u) => u.match(/[?&]track=(\d+)/)?.[1])
+    .find(Boolean);
   const ordenadas = [...jsonUrls.filter((u) => /track=/.test(u) && /mp4/i.test(u)), ...jsonUrls];
   const pids = new Set(
     Array.from(doc.querySelectorAll("[data-pid]")).map((e) => e.getAttribute("data-pid") ?? ""),
   );
-  const blobs = jsonBlobs.map((j) => ({ mp4s: findMp4(j), markers: findMarkers(j) }));
+  const itens: ItemMidia[] = [];
+  const blobs = jsonBlobs.map((j) => {
+    itens.push(...findItensMidia(j));
+    return { mp4s: findMp4(j), markers: findMarkers(j) };
+  });
   for (const ju of Array.from(new Set(ordenadas)).slice(0, 8)) {
     try {
       const j: unknown = JSON.parse((await fetchProxy(ju)).texto);
+      itens.push(...findItensMidia(j));
       blobs.push({ mp4s: findMp4(j), markers: findMarkers(j) });
     } catch {
       /* ignore */
     }
   }
+  const faixa = selecionarFaixa(itens, docId, trackPagina);
   const pontos = (b: { markers: Marker[] }) =>
     b.markers.filter((m) => m.label && pids.has(m.label)).length;
   const comMp4 = blobs.filter((b) => b.mp4s.length);
-  if (comMp4.length) {
+  if (faixa) {
+    // Vídeo exato desta página (pacotes de revista trazem todas as faixas juntas).
+    video_url = faixa.mp4;
+    markers = faixa.markers.length
+      ? faixa.markers
+      : blobs.flatMap((b) => b.markers).filter((m) => m.docId === docId);
+  } else if (comMp4.length) {
     const melhor = [...comMp4].sort((a, b) => pontos(b) - pontos(a))[0]!;
     video_url =
       melhor.mp4s.find((m) => /720p/.test(m)) ||
