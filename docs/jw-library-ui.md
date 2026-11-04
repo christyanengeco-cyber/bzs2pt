@@ -2,6 +2,8 @@
 
 > **Data:** 04/11/2026 · **Escopo:** a aba Reuniões do JW Library no mobile (iOS/Android), cobrindo a reunião de **meio de semana** (Vida e Ministério) e a de **fim de semana** (discurso público + Estudo de A Sentinela) · **Objetivo:** catálogo detalhado das escolhas de design, cada uma com o mapeamento "como aplicar no bzs2pt", citando os arquivos reais deste repositório.
 >
+> **Atualização (05/11/2026):** decisões do dono registradas e aplicadas ao plano — v. seção 10.
+>
 > **Legenda de confiabilidade** — usada em todo o documento:
 > - 📌 **Fato documentado** — confirmado em fonte oficial (histórico de versões na App Store, páginas de ajuda oficial em jw.org) ou em fonte primária citada.
 > - 👁 **Observação em captura** — visto diretamente em screenshot de versão real do app; cores aproximadas.
@@ -43,7 +45,7 @@ Uma nota de honestidade antes de começar: a ajuda oficial do jw.org **atrasa em
 
 ### Como aplicar no bzs2pt
 
-💡 O bzs2pt já tem o equivalente funcional da separação meio de semana/fim de semana: os tipos de publicação `"sentinela" | "apostila" | "referencia" | "extras"` (`src/lib/db.ts`, tipo `TipoPub`), com as abas por tipo na home (`src/routes/index.tsx`, estado `aba`). O princípio a preservar é o do item 1 acima: **qualquer estudo deve estar a no máximo dois toques da home** — e a home já cumpre isso (aba → estudo). Se um dia a home ganhar barra de abas inferior própria (padrão JW), o candidato natural é mover o seletor de tipos para lá, mantendo o rótulo sempre visível junto ao ícone.
+💡 **Correção (05/11/2026):** a home do bzs2pt tem **três abas** — *A Sentinela*, *Vida e Ministério* e *Extras* (`ABAS` em `src/routes/index.tsx`); **não existe aba Referência e não deve existir** (decisão do dono). O tipo `"referencia"` existe em `TipoPub` (`src/lib/db.ts`) apenas como **marcador interno** das publicações importadas pelo Painel de referências (`estudo.$id.tsx` ~537/852/879) — elas ficam no IndexedDB e são abertas pelo próprio fluxo do painel, sem lugar na home. A separação meio de semana/fim de semana hoje é feita por essas abas de tipo (`apostila` × `sentinela`). O princípio a preservar é o do item 1 acima: **qualquer estudo deve estar a no máximo dois toques da home** — e a home já cumpre isso (aba → estudo). Se um dia a home ganhar barra de abas inferior própria (padrão JW), o candidato natural é mover o seletor de tipos para lá, mantendo o rótulo sempre visível junto ao ícone.
 
 ---
 
@@ -70,7 +72,7 @@ O histórico de versões da App Store documenta a evolução recente da aba em t
 
 - **Auto-seleção da semana:** `escolherSemanaInicial(publicacoes, hoje)` em `src/lib/study-dates.ts` escolhe a semana vigente; o chip da semana ativa recebe scroll automático (`semanaAtiva.current?.scrollIntoView(...)` em `src/routes/index.tsx`).
 - **Aviso quando a semana atual falta:** o texto *"A semana atual ainda não foi importada. Mostrando a anterior mais recente."* (`src/routes/index.tsx`, linha ~141) é a versão honesta do item 3: quando não há dado, o app **diz o que está mostrando** em vez de fingir — mesmo espírito da regra 9 do AGENTS.md ("toda recusa se assina").
-- **Oportunidade fiel ao redesign v15.4.1:** hoje as abas da home separam por tipo (`sentinela` vs `apostila`). Uma visão agregada "esta semana" — com o estudo de meio de semana e o de fim de semana **na mesma página**, cada um com seu bloco — seria o espelho direto do JW Library atual. Ver seção 10, item M2.
+- **Decisão (05/11/2026) — espelho direto do redesign v15.4.1:** a home passa a ter a aba **Estudo**, com o material de meio de semana e o de fim de semana **na mesma página** (duas cápsulas empilhadas), mantendo a aba **Extras**. Desenho detalhado e estados vazios na seção 10, item M2.
 
 ---
 
@@ -107,7 +109,7 @@ O histórico de versões da App Store documenta a evolução recente da aba em t
 
 - **Seções:** `type Secao = "tesouros" | "ministerio" | "vida"` em `src/lib/publication-layout.ts` (`identificarSecao`), detectadas no parse e gravadas em cada `Paragrafo` (`faixa`/`estilo` em `src/lib/db.ts`).
 - **Cores de seção:** `src/styles.css` linhas 106–107 — claro: `--sec-tesouros: #3c6f80`, `--sec-ministerio: #b8860b`, `--sec-vida: #9b2c2c`; escuro: `#6fa8b8`, `#d9a43c`, `#d0605a`. O `#3c6f80` do bzs2pt é o mesmo azul-petróleo do banner *Treasures* da captura — o mapeamento de cor é 1:1 com o workbook.
-- **Estilo de banner — diferença deliberada:** o JW usa faixa preenchida com texto branco; o bzs2pt usa **texto colorido na cor da seção + borda inferior** (`.workbook-paragraph[data-estilo="secao"]`, `src/styles.css` ~172). É uma escolha válida e mais leve — e, se você quiser a fidelidade ao JW, o caminho é um `background: var(--publication-section)` com texto branco nesse mesmo seletor. Recomendo manter como está e considerar o banner como experimento visual isolado (seção 10, M3).
+- **Estilo de banner — diferença deliberada:** o JW usa faixa preenchida com texto branco; o bzs2pt usa **texto colorido na cor da seção + borda inferior** (`.workbook-paragraph[data-estilo="secao"]`, `src/styles.css` ~172). É uma escolha válida e mais leve — e, para a fidelidade ao JW, o caminho é um `background: var(--publication-section)` com texto branco nesse mesmo seletor. **Decisão do dono (05/11/2026):** adotar o banner fiel ao JW ("o mais parecido possível com o app") — o M3 deixa de ser experimento e entra no plano (seção 10).
 - **Tempo e resposta:** `Paragrafo.resposta` e `faixa` já carregam essa estrutura; o Leitor renderiza pergunta + espaço de resposta no `data-estilo="corpo"`.
 
 ---
@@ -132,7 +134,8 @@ O histórico de versões da App Store documenta a evolução recente da aba em t
 
 - `TipoPub "sentinela"` + `extrairIntervaloSemana(texto)` e `intervaloDaPublicacao(p)` (`src/lib/study-dates.ts`) produzem o `intervalo {inicio, fim}` em ISO; `ordenarSemanasCronologicamente` e `escolherSemanaInicial` fazem a navegação.
 - O **título da tela de estudo** (`estudo.$id.tsx`, `.publication-title`) pode adotar o formato JW *"Estudo de A Sentinela: <intervalo>"* quando a publicação tiver intervalo — hoje o título é o `p.titulo` cru. Ajuste de baixo custo e alto ganho de reconhecimento (seção 10, M1).
-- As três cores de seção não se aplicam à Sentinela (é estudo com subtítulos) — o bzs2pt já trata isso: `data-secao` só existe no workbook-reader, e os subtítulos da Sentinela usam `--reference` (`.workbook-paragraph[data-estilo="subtitulo"]`, `src/styles.css` ~181).
+- As três cores de seção não se aplicam à Sentinela (é estudo com subtítulos) — o bzs2pt já trata isso: `data-secao` só existe no workbook-reader, e os subtítulos da Sentinela usam `--reference` (`.workbook-paragraph[data-estilo="subtitulo"]`, `src/styles.css` ~181; no Leitor esses parágrafos recebem a classe `watchtower-paragraph`, `estudo.$id.tsx` ~1135).
+- **Decisão do dono (05/11/2026):** a Sentinela tem mais elementos que merecem destaque próprio — interface mais parecida com o app, e ainda assim bonita e usável: **subtítulos** (hoje `--reference`), **quadros informativos** (já detectados no parse como `data-faixa="true"`, via `.du-bgColor--bgSecondary` — `publication-layout.ts:29`) e **perguntas de estudo** (classe `publication-question` via `Paragrafo.pergunta`). Tratamento proposto na seção 10, M7.
 
 ---
 
@@ -153,11 +156,11 @@ O histórico de versões da App Store documenta a evolução recente da aba em t
 
 ### Como aplicar no bzs2pt
 
-💡 Estado atual do bzs2pt: o painel de referências/vídeos (`PainelReferencia`, `src/routes/estudo.$id.tsx` ~linha 759) busca vídeo da referência, importa e abre em miniatura; o player embutido do Leitor tem tempo/duração/velocidade (`tocando/tempo/dur/vel`). O que falta para o padrão JW:
+💡 Estado atual do bzs2pt: o painel de referências/vídeos (`PainelReferencia`, `src/routes/estudo.$id.tsx` ~linha 759) busca vídeo da referência, importa e abre em miniatura; o player embutido do Leitor tem tempo/duração/velocidade (`tocando/tempo/dur/vel`). O que faltaria para o padrão JW — **arquivado por decisão do dono (05/11/2026): não haverá painel de mídias**; a mídia segue onde está hoje (player do Leitor + `PainelReferencia`), e a descrição do JW acima permanece só como referência de padrão:
 
-- **Badge de duração sobre a thumbnail** do vídeo (👁 padrão JW em toda lista de mídia) — informação barata e valiosa pra decidir reproduzir ou não.
-- **Estado "offline/baixado"** para imagens já salvas (`guardarImagem` em `src/lib/publication-layout.ts` já persiste as imagens; falta o *indicador*).
-- **Custo em MB quando houver download** de mídia grande — alinhado ao princípio 2 acima.
+- *(arquivado)* **Badge de duração sobre a thumbnail** do vídeo (👁 padrão JW em toda lista de mídia).
+- *(arquivado)* **Estado "offline/baixado"** para imagens já salvas (`guardarImagem` em `src/lib/publication-layout.ts` já persiste as imagens; falta o *indicador*).
+- *(arquivado)* **Custo em MB quando houver download** de mídia grande.
 
 ---
 
@@ -233,17 +236,17 @@ Checklist de acessibilidade para o Leitor (custo baixo, sem mudança de fluxo):
 | # | Escolha do JW Library | Estado no bzs2pt | Onde / o que fazer |
 |---|---|---|---|
 | 1 | Reuniões como aba de 1º nível (1 toque) | ✅ equivalente: abas por tipo na home | `src/routes/index.tsx` |
-| 2 | Página única da semana (meio de semana + fim de semana juntos, v15.4.1) | ❌ hoje separado por tipo | visão agregada "esta semana" — seção 10, M2 |
+| 2 | Página única da semana (meio de semana + fim de semana juntos, v15.4.1) | ❌ hoje separado por tipo | ✅ **decidido (05/11): aba Estudo com 2 cápsulas** — seção 10, M2 |
 | 3 | Auto-seleção da semana atual | ✅ `escolherSemanaInicial` + scroll automático | `src/lib/study-dates.ts`, `index.tsx` |
 | 4 | Aviso honesto quando o conteúdo da semana falta | ✅ texto de semana não importada | `index.tsx` ~141 |
 | 5 | Cores de seção como código (petróleo/âmbar/vermelho) | ✅ 1:1 com o workbook | `src/styles.css:106-107`, `publication-layout.ts` |
-| 6 | Banner preenchido × texto colorido | ⚠️ bzs2pt usa texto colorido (escolha própria, mais leve) | manter; banner opcional em M3 |
+| 6 | Banner preenchido × texto colorido | ⚠️ bzs2pt usa texto colorido (escolha própria, mais leve) | ✅ **decidido (05/11): adotar faixa preenchida** — M3 |
 | 7 | Tempo da parte junto ao rótulo | ✅ estrutura `resposta`/`faixa` | `db.ts`, `publication-layout.ts` |
 | 8 | Referências como links precisos (¶) | ✅ painel de referências clicável | `PainelReferencia`, `estudo.$id.tsx` |
 | 9 | Título por data de uso (estudo + intervalo) | ⚠️ mostra título cru | M1: formatar título com intervalo |
-| 10 | Mídia da semana agrupada + History | ⚠️ mídia por referência, sem histórico | M5 |
-| 11 | Badge de duração em vídeo | ❌ | M4 |
-| 12 | Download com custo (MB) explícito | ❌ | M4/M5 |
+| 10 | Mídia da semana agrupada + History | ⚠️ mídia por referência, sem histórico | ❌ **descartado (05/11): sem painel de mídias** |
+| 11 | Badge de duração em vídeo | ❌ | ❌ descartado (sem painel de mídias) |
+| 12 | Download com custo (MB) explícito | ❌ | ❌ descartado (sem painel de mídias) |
 | 13 | Destaque com paleta ampla | ✅ 16 cores por seleção | `marcar(cor)` |
 | 14 | Acento de interface único e discreto | ⚠️ bzs2pt tem 16 (escolha própria) | manter; conter se parecer colorido |
 | 15 | Dark mode com paleta recalibrada | ✅ seções recalibradas p/ dark | `styles.css:106-107` |
@@ -255,19 +258,25 @@ Checklist de acessibilidade para o Leitor (custo baixo, sem mudança de fluxo):
 
 ## 10. Oportunidades priorizadas (respeitando o AGENTS.md)
 
-Nenhuma das oportunidades abaixo cria guarda/detector/recusa — todas são **adições de renderização**, de baixo risco para o fluxo que funciona. Uma mudança por vez, `npm run test` antes de cada commit, bump em `src/lib/build.ts`, e sincronização/publicação no Lovable ao final.
+**Decisões do dono — 05/11/2026** (registradas acima e aplicadas a este plano):
 
-**Curto prazo (custo baixo, ganho imediato):**
+1. **Sem aba Referência** — não existe e não deve existir; `"referencia"` segue apenas como marcador interno das importações do Painel de referências.
+2. **Aba Estudo única:** meio de semana e fim de semana na mesma página, em **duas cápsulas empilhadas** (meio em cima, fim embaixo); a aba **Extras** permanece. Se a semana tem só um dos estudos, o que existe aparece normal e o ausente exibe estado vazio próprio ("não possui o estudo do fim de semana", e vice-versa).
+3. **Banner de seção fiel ao JW:** faixa preenchida com `var(--publication-section)` e texto branco.
+4. **Sentinela com destaques próprios** para subtítulos, quadros informativos e perguntas — mais parecida com o app, bonita e usável.
+5. **Sem painel de mídias** — M4 e M5 arquivados.
 
-- **M1 — Título com intervalo de semana.** No Leitor, exibir *"Estudo de A Sentinela · 26 out–1º nov"* (usar `intervaloDaPublicacao`). Arquivo: `estudo.$id.tsx`.
-- **M4 — Badge de duração nos vídeos** do painel de referências (quando os dados de duração existirem no item). Arquivo: `estudo.$id.tsx` (PainelReferencia).
+Nenhuma das oportunidades abaixo cria guarda/detector/recusa — todas são **adições de renderização ou reorganização da home**, de baixo risco para o fluxo que funciona. Uma mudança por vez, `npm run test` antes de cada commit, bump em `src/lib/build.ts`, e sincronização/publicação no Lovable ao final.
+
+**Ordem de execução proposta:**
+
+- **M2 — Aba "Estudo" com duas cápsulas** (redesign da home). As abas passam a ser `Estudo` + `Extras`; o chip de semanas lista a **união** das semanas de `apostila` ∪ `sentinela`; emparelhamento meio↔fim pelo `intervaloDaPublicacao` (mesma segunda-feira; fallback: intervalos que se sobrepõem; fallback: texto de semana idêntico). Cápsula com rótulo da reunião, semana, título e link para o Leitor; estado vazio nomeado quando faltar um dos dois; estado geral "Nenhum estudo importado" quando a união estiver vazia. Arquivo: `src/routes/index.tsx` (sem parser novo).
+- **M3 — Banner de seção fiel** em `.workbook-paragraph[data-estilo="secao"]`: fundo `var(--publication-section)`, texto e ícone brancos, faixa full-bleed (`margin-inline: -24px`, como `data-faixa`). Arquivo: `src/styles.css`.
+- **M7 — Destaques da Sentinela** (reader `watchtower-paragraph`): quadros (`data-faixa="true"`) como cartão destacado com fundo suave e borda; perguntas (`publication-question`) com tratamento tipográfico próprio; subtítulos mantêm `--reference`. Arquivos: `src/styles.css` (+ ajustes pontuais em `estudo.$id.tsx` se faltar dado de renderização).
+- **M1 — Título com intervalo de semana** no Leitor: *"Estudo de A Sentinela · 26 out–1º nov"* (usar `intervaloDaPublicacao`). Arquivo: `estudo.$id.tsx`.
 - **M6 — A11y mínima:** `aria-label` único por parágrafo nas tools + cabeçalhos reais por seção. Arquivos: `estudo.$id.tsx`, `styles.css`.
 
-**Médio prazo:**
-
-- **M2 — Visão "esta semana"** agregando `apostila` + `sentinela` da semana vigente na mesma página (o espelho do redesign v15.4.1). Exige cuidado com o seletor de semanas existente — proposta: bloco no topo da home, sem mexer nas abas.
-- **M3 — Experimento de banner de seção** (faixa preenchida × texto colorido) atrás de flag visual opcional, decidível pelo dono com o app na mão.
-- **M5 — Histórico de itens abertos** (últimos estudos/referências) — espelho da seção History do Show Media.
+**Arquivados (decisão "sem painel de mídias"):** ~~M4 — badge de duração~~; ~~M5 — histórico de itens abertos~~. Revisitáveis só se o `PainelReferencia` crescer por demanda própria.
 
 **O que NÃO fazer (pela assimetria do AGENTS.md):** nenhuma "validação nova" de conteúdo importado, nenhum detector de página ruim adicional, nenhuma restrição de marcação por tipo de parágrafo. O custo/falha desses guarda-custo está dimensionado no AGENTS.md e no DIRETRIZES.md — o JW Library, com todos os recursos, ainda perde respostas do usuário e esconde destaque com VoiceOver: funcionalidade simples e persistente vale mais que blindagem.
 
