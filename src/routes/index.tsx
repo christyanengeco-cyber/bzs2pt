@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, CalendarDays, Check, Clock3, DatabaseBackup, Link2, Loader2, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { BookOpen, CalendarDays, Check, Clock3, DatabaseBackup, FileUp, Link2, Loader2, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { excluirPublicacao, listarPublicacoes, salvarPublicacao, type Publicacao, type TipoPub } from "@/lib/db";
-import { importarUrl, listarArtigos, type ArtigoRevista } from "@/lib/parser";
+import { decodificarPaginaSalva, importarHtml, importarUrl, listarArtigos, type ArtigoRevista } from "@/lib/parser";
 import { escolherSemanaInicial, hojeIso, intervaloDaPublicacao, ordenarSemanasCronologicamente } from "@/lib/study-dates";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BackupDialog } from "@/components/BackupDialog";
@@ -179,6 +179,7 @@ type StatusImport = "aguardando" | "importando" | "concluido" | "erro" | "existe
 
 function ImportModal({ existentes, onClose, onDone }: { existentes: Set<string>; onClose: () => void; onDone: (t: TipoPub) => void }) {
   const [url, setUrl] = useState("");
+  const arquivoRef = useRef<HTMLInputElement>(null);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
   const [avisos, setAvisos] = useState<string[]>([]);
@@ -253,6 +254,25 @@ function ImportModal({ existentes, onClose, onDone }: { existentes: Set<string>;
   const falhos = artigos?.filter((a) => status[a.url] === "erro") ?? [];
   const fechar = () => ultimoTipo ? onDone(ultimoTipo) : onClose();
 
+  async function importarArquivo(file?: File) {
+    if (!file) return;
+    setErro(""); setAvisos([]); setCarregando(true);
+    try {
+      const { html, url: urlSalva } = decodificarPaginaSalva(await file.text(), file.name);
+      const origem = urlSalva || `arquivo:${file.name}`;
+      const r = await importarHtml(html, origem);
+      if (existentes.has(r.publicacao.url_origem)) { setErro("Este estudo já foi importado."); return; }
+      if (extras) r.publicacao.tipo = "extras";
+      await salvarPublicacao(r.publicacao, r.paragrafos);
+      if (urlSalva) existentes.add(r.publicacao.url_origem);
+      setUltimoTipo(r.publicacao.tipo);
+      if (r.avisos.length) setAvisos(r.avisos);
+      else onDone(r.publicacao.tipo);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : String(e));
+    } finally { setCarregando(false); }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-overlay backdrop-blur-sm sm:items-center" onClick={fechar}>
       <div role="dialog" aria-modal="true" aria-labelledby="import-title" className="max-h-[92dvh] w-full max-w-lg overflow-y-auto border bg-card p-5 sm:rounded-lg" onClick={(e) => e.stopPropagation()}>
@@ -308,6 +328,12 @@ function ImportModal({ existentes, onClose, onDone }: { existentes: Set<string>;
               <input id="import-url" autoFocus value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://www.jw.org/bzs/..." className="w-full bg-transparent py-3 outline-none" inputMode="url" />
             </div>
             {erro && <p role="alert" className="mt-3 text-sm text-destructive">{erro}</p>}
+            {erro && /Não foi possível baixar|esgotado|segurança|resposta inesperada/i.test(erro) && (
+              <p className="mt-2 rounded-md bg-accent/60 p-2 text-xs text-accent-foreground">
+                Alternativa que sempre funciona: abra o link no navegador (Chrome), toque em ⋮ →
+                Baixar e importe o arquivo baixado aqui pelo botão abaixo.
+              </p>
+            )}
             {avisos.map((aviso) => <p key={aviso} className="mt-3 border-l-2 border-primary bg-selection p-2 text-sm">{aviso}</p>)}
             <label htmlFor="salvar-extras" className="mt-3 flex items-center gap-3 text-sm">
               <input
@@ -322,6 +348,21 @@ function ImportModal({ existentes, onClose, onDone }: { existentes: Set<string>;
             <Button disabled={carregando || !url} onClick={buscar} className="mt-5 w-full">
               {carregando && <Loader2 className="animate-spin" />}{carregando ? "Abrindo" : "Continuar"} {cron}
             </Button>
+            <p className="mt-4 text-center text-xs text-muted-foreground">— ou —</p>
+            <Button variant="outline" disabled={carregando} onClick={() => arquivoRef.current?.click()} className="mt-2 w-full">
+              {carregando ? <Loader2 className="animate-spin" /> : <FileUp />} Importar arquivo salvo do jw.org (.html/.mhtml)
+            </Button>
+            <input
+              ref={arquivoRef}
+              type="file"
+              accept=".html,.htm,.mhtml,.mht,text/html,application/x-mimearchive"
+              className="hidden"
+              onChange={(e) => { importarArquivo(e.target.files?.[0]); e.target.value = ""; }}
+            />
+            <p className="mt-2 text-center text-xs text-muted-foreground">
+              Salve a página no navegador (menu ⋮ → Baixar) e escolha o arquivo aqui — funciona
+              mesmo quando o download automático falha.
+            </p>
           </>
         )}
       </div>

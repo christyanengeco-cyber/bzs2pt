@@ -3,9 +3,9 @@
  *  (o Lovable nem sempre publica o último commit do GitHub de imediato).
  *  Atualizar estes valores a cada alteração relevante enviada para o app. */
 export const BUILD = {
-  versao: "1.1.2",
+  versao: "1.2.0",
   data: "04/11/2026",
-  resumo: "Timeout do servidor restaurado para 30s (corrige 'signal timed out' na importação)",
+  resumo: "Importação por arquivo salvo do navegador (funciona mesmo com jw.org bloqueando servidores)",
 };
 
 export const ROTULO_BUILD = `v${BUILD.versao} · ${BUILD.data}`;

@@ -312,8 +312,16 @@ export interface ResultadoImport {
 }
 
 export async function importarUrl(url: string): Promise<ResultadoImport> {
-  const avisos: string[] = [];
   const html = (await fetchProxy(url)).texto;
+  return importarHtml(html, url);
+}
+
+export async function importarHtml(html: string, urlOrigem: string): Promise<ResultadoImport> {
+  // base para resolver links/imagens relativos: o próprio endereço salvo (canonical
+  // ou Snapshot-Content-Location do MHTML) ou, na falta dele, a raiz do jw.org.
+  // urlOrigem pode ser um rótulo ("arquivo:nome") — nesse caso url_origem guarda o rótulo.
+  const url = urlOrigem.startsWith("arquivo:") || !urlOrigem ? "https://www.jw.org/" : urlOrigem;
+  const avisos: string[] = [];
   const doc = new DOMParser().parseFromString(html, "text/html");
   const abs = (h: string) => {
     try {
@@ -538,7 +546,7 @@ export async function importarUrl(url: string): Promise<ResultadoImport> {
       semana,
       layout_versao: 1,
       ...(intervalo ? { semana_inicio: intervalo.inicio, semana_fim: intervalo.fim } : {}),
-      url_origem: url,
+      url_origem: urlOrigem || url,
       video_url,
       criado_em: Date.now(),
     },
@@ -695,4 +703,86 @@ export function linkEstudoLivro(texto: string, anterior = "") {
       return { inicio: nm.index, fim: nm.index + nm[0].length, href: `livro:${code}:${nm[1]}` };
   }
   return null;
+}
+
+/** URL do jw.org dentro de um HTML salvo: canonical, og:url ou <base>. */
+export function extrairUrlDeHtmlSalvo(html: string): string {
+  try {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const candidatas = [
+      doc.querySelector('link[rel="canonical"]')?.getAttribute("href"),
+      doc.querySelector('meta[property="og:url"]')?.getAttribute("content"),
+      doc.querySelector("base")?.getAttribute("href"),
+    ];
+    for (const c of candidatas) {
+      if (!c) continue;
+      try {
+        const u = new URL(c, "https://www.jw.org");
+        if (/(^|\.)jw\.org$/i.test(u.hostname)) return u.href;
+      } catch {
+        /* próxima candidata */
+      }
+    }
+  } catch {
+    /* arquivo estranho */
+  }
+  return "";
+}
+
+/** quoted-printable → texto (MHTML guarda o HTML assim). */
+function decodificarQuotedPrintable(s: string): string {
+  const limpo = s.replace(/=\r?\n/g, "");
+  const bytes = new Uint8Array(limpo.length);
+  let n = 0;
+  for (let i = 0; i < limpo.length; ) {
+    const c = limpo[i]!;
+    if (c === "=" && /^[0-9A-Fa-f]{2}/.test(limpo.slice(i + 1, i + 3))) {
+      bytes[n++] = parseInt(limpo.slice(i + 1, i + 3), 16)!;
+      i += 3;
+    } else {
+      bytes[n++] = limpo.charCodeAt(i) & 0xff;
+      i += 1;
+    }
+  }
+  return new TextDecoder("utf-8", { fatal: false }).decode(bytes.subarray(0, n));
+}
+
+function decodificarBase64(s: string): string {
+  try {
+    const bin = atob(s.replace(/\s+/g, ""));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+  } catch {
+    return "";
+  }
+}
+
+/** Página salva do navegador: Chrome Android baixa .mhtml (MHTML com quoted-printable),
+ *  Firefox/desktop salvam .html. Devolve o HTML e a URL original da página, quando
+ *  dá para saber (Snapshot-Content-Location no MHTML, canonical/og:url no HTML). */
+export function decodificarPaginaSalva(
+  conteudo: string,
+  nomeArquivo: string,
+): { html: string; url: string } {
+  const cabecalho = conteudo.slice(0, 2000);
+  if (/MIME-Version:/i.test(cabecalho) && /multipart\/related/i.test(cabecalho)) {
+    const boundary = cabecalho.match(/boundary="?([^"\r\n;]+)"?/i)?.[1];
+    if (boundary) {
+      for (const parte of conteudo.split("--" + boundary)) {
+        if (!/text\/html/i.test(parte.slice(0, 500))) continue;
+        const cod = parte.match(/Content-Transfer-Encoding:\s*(\S+)/i)?.[1]?.toLowerCase() ?? "";
+        const corpo = parte.split(/\r?\n\r?\n/).slice(1).join("\n\n");
+        const html = cod.includes("base64")
+          ? decodificarBase64(corpo)
+          : decodificarQuotedPrintable(corpo);
+        if (html.trim())
+          return {
+            html,
+            url: parte.match(/Snapshot-Content-Location:\s*(\S+)/i)?.[1] ?? "",
+          };
+      }
+    }
+  }
+  return { html: conteudo, url: extrairUrlDeHtmlSalvo(conteudo) };
 }
