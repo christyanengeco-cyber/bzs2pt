@@ -27,7 +27,10 @@ const DESAFIO_RE =
 export function respostaUtil(t: string): boolean {
   const s = t.trim();
   if (!s) return false;
-  if (DESAFIO_RE.test(s)) return false;
+  // Páginas reais do jw.org agora embutem o script do WAF no <head>; só é
+  // desafio quando não há conteúdo real da página.
+  const temConteudo = s.length > 20000 && /<article|bodyTxt|docSubContent|<main|mediaItems/i.test(s);
+  if (!temConteudo && DESAFIO_RE.test(s)) return false;
   return (
     /^<!doctype/i.test(s) ||
     /^<html/i.test(s) ||

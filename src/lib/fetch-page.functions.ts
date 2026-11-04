@@ -60,7 +60,9 @@ export const baixarPagina = createServerFn({ method: "POST" })
           await pausa(700 * (tentativa + 1));
           continue;
         }
-        if (DESAFIO_RE.test(texto.slice(0, 5000))) {
+        const temConteudo =
+          texto.length > 20000 && /<article|bodyTxt|docSubContent|<main|mediaItems/i.test(texto);
+        if (!temConteudo && DESAFIO_RE.test(texto.slice(0, 5000))) {
           motivo = "o jw.org está exigindo verificação de segurança (página-desafio)";
           diagnostico = texto.slice(0, 120).replace(/\s+/g, " ");
           await pausa(700 * (tentativa + 1));
