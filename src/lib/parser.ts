@@ -296,6 +296,8 @@ function escolherMp4(mp4s: string[]): string | undefined {
 export interface VideoEncontrado {
   titulo: string;
   mp4: string;
+  /** Segundo inicial (ex.: versículo citado), quando conhecido. */
+  inicio?: number | undefined;
 }
 
 /** Links que representam um vídeo do jw.org mesmo sem conter "video": o finder com
@@ -632,13 +634,45 @@ export interface ConteudoReferencia {
 }
 
 /** Busca só o trecho referenciado (versículos ou início do artigo), sem importar tudo. */
+/** Códigos de versículo (LLCCCVVV) presentes no link da Bíblia (#v… ou bible=…). */
+export function idsBiblia(href: string): number[] {
+  const hash = href.split("#")[1] ?? "";
+  const doHash = hash.match(/\d{6,}/g) ?? [];
+  const param = href.match(/[?&]bible=([\d-]+)/)?.[1]?.match(/\d{6,}/g) ?? [];
+  return [...doHash, ...param].map(Number);
+}
+
+/** Vídeo em Libras do capítulo bíblico (pub=nwt, LSB), escolhido pelo livro/capítulo do link. */
+export async function buscarVideoBiblia(href: string): Promise<VideoEncontrado | undefined> {
+  const id = idsBiblia(href)[0];
+  if (!id) return undefined;
+  const livro = Math.floor(id / 1_000_000);
+  const cap = Math.floor(id / 1000) % 1000;
+  const verso = id % 1000;
+  const api = `https://b.jw-cdn.org/apis/pub-media/GETPUBMEDIALINKS?output=json&pub=nwt&fileformat=MP4&alllangs=0&langwritten=LSB&txtCMSLang=LSB&booknum=${livro}&track=${cap}`;
+  const j: unknown = JSON.parse((await fetchProxy(api)).texto);
+  const itens = findItensMidia(j).filter((i) => !i.track || i.track === String(cap));
+  const mp4 = escolherMp4(itens.map((i) => i.url));
+  if (!mp4) return undefined;
+  const marcas = itens.flatMap((i) => i.markers);
+  const m = marcas.find((x) => x.label === String(verso) || x.label === String(id));
+  return { titulo: `Capítulo ${cap}`, mp4, inicio: m?.startTime };
+}
+
 export async function buscarReferencia(href: string): Promise<ConteudoReferencia> {
-  const html = (await fetchProxy(href.split("#")[0] ?? href)).texto;
-  const doc = new DOMParser().parseFromString(html, "text/html");
   const limpar = (x: string | null | undefined) => (x ?? "").replace(/\s+/g, " ").trim();
+  const ids = idsBiblia(href);
+  // Bíblia: o jw.org em Libras não tem texto — busca o texto em português (Tradução do Novo Mundo).
+  let alvoUrl = href.split("#")[0] ?? href;
+  if (ids.length) {
+    const ini = ids[0]!,
+      fim = ids[ids.length - 1]!;
+    alvoUrl = `https://www.jw.org/finder?wtlocale=T&pub=nwtsty&bible=${ini}${fim !== ini ? "-" + fim : ""}`;
+  }
+  const html = (await fetchProxy(alvoUrl)).texto;
+  const doc = new DOMParser().parseFromString(html, "text/html");
   const titulo = limpar(doc.querySelector("article h1, h1")?.textContent) || limpar(doc.title);
   const hash = href.split("#")[1] ?? "";
-  const ids = hash.match(/\d{6,}/g)?.map(Number) ?? [];
   const numPar = hash.match(/^p(\d+)$/)?.[1];
   const biblia = /\/biblia\//i.test(href) || ids.length > 0;
   if (ids.length) {
