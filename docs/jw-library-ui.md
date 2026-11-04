@@ -274,7 +274,7 @@ Nenhuma das oportunidades abaixo cria guarda/detector/recusa — todas são **ad
 - **M3 — Banner de seção fiel** em `.workbook-paragraph[data-estilo="secao"]`: fundo `var(--publication-section)`, texto e ícone brancos, faixa full-bleed (`margin-inline: -24px`, como `data-faixa`). Arquivo: `src/styles.css`.
 - **M7 — Destaques da Sentinela** (reader `watchtower-paragraph`): quadros (`data-faixa="true"`) como cartão destacado com fundo suave e borda; perguntas (`publication-question`) com tratamento tipográfico próprio; subtítulos mantêm `--reference`. Arquivos: `src/styles.css` (+ ajustes pontuais em `estudo.$id.tsx` se faltar dado de renderização).
 - **M1 — Título com intervalo de semana** no Leitor: *"Estudo de A Sentinela · 26 out–1º nov"* (usar `intervaloDaPublicacao`). Arquivo: `estudo.$id.tsx`.
-- **M6 — A11y mínima:** `aria-label` único por parágrafo nas tools + cabeçalhos reais por seção. Arquivos: `estudo.$id.tsx`, `styles.css`.
+- **M6 — A11y mínima:** `aria-label` único por parágrafo nas tools + cabeçalhos anunciados por seção (`role="heading"`/`aria-level`, preservando seleção e sincronismo). Arquivos: `estudo.$id.tsx`, `styles.css`.
 
 **Arquivados (decisão "sem painel de mídias"):** ~~M4 — badge de duração~~; ~~M5 — histórico de itens abertos~~. Revisitáveis só se o `PainelReferencia` crescer por demanda própria.
 

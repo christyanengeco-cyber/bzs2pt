@@ -1142,6 +1142,12 @@ function ParagrafoView({
       </figure>
     );
 
+  // M6 — cabeçalhos anunciados no rotor do leitor de tela sem trocar a tag
+  // (preserva seleção, marcação e sincronismo com o vídeo).
+  const eCabecalho =
+    estilo === "secao" || estilo === "subtitulo" || estilo === "titulo" || estilo === "cantico";
+  const nivelCabecalho = estilo === "secao" ? 2 : 3;
+
   return (
     <div
       data-secao={secao}
@@ -1158,6 +1164,8 @@ function ParagrafoView({
       {estilo === "cantico" && <Music2 className="publication-music h-5 w-5" aria-hidden="true" />}
       <p
         ref={ref}
+        role={eCabecalho ? "heading" : undefined}
+        aria-level={eCabecalho ? nivelCabecalho : undefined}
         onClick={() => {
           if (!window.getSelection()?.toString()) onTap();
         }}
@@ -1178,7 +1186,7 @@ function ParagrafoView({
           <button
             onClick={onSync}
             title="Usar o tempo atual do vídeo"
-            aria-label="Sincronizar com o tempo atual"
+            aria-label={`Sincronizar o parágrafo ${p.numero_ordem + 1} com o tempo atual`}
             className="rounded-lg bg-primary p-1.5 text-primary-foreground"
           >
             <Clock className="h-4 w-4" />
@@ -1186,7 +1194,7 @@ function ParagrafoView({
         )}
         {temDestaque && (
           <button
-            aria-label="Limpar marcações"
+            aria-label={`Limpar marcações do parágrafo ${p.numero_ordem + 1}`}
             onClick={async () => {
               const ds = notas.filter((n) => n.tipo === "destaque");
               await Promise.all(ds.map((d) => excluirAnotacao(d.id)));
@@ -1201,7 +1209,7 @@ function ParagrafoView({
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Ocultar trecho"
+            aria-label={`Ocultar o trecho do parágrafo ${p.numero_ordem + 1}`}
             title="Ocultar"
             onClick={() => {
               if (confirm("Ocultar este trecho? Você pode mostrar de novo em Itens ocultos."))
@@ -1214,7 +1222,7 @@ function ParagrafoView({
         <Button
           variant="ghost"
           size="icon"
-          aria-label="Anotação"
+          aria-label={`Anotação no parágrafo ${p.numero_ordem + 1}`}
           onClick={() => setAberto((a) => !a)}
           className={`ml-auto h-7 w-7 ${texto ? "text-primary" : ""}`}
         >
