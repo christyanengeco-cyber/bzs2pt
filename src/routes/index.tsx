@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
-  CalendarDays,
   Check,
   Clock3,
   DatabaseBackup,
@@ -59,24 +58,93 @@ export const Route = createFileRoute("/")({
   component: Biblioteca,
 });
 
-const ABAS: { id: TipoPub; nome: string }[] = [
-  { id: "sentinela", nome: "A Sentinela" },
-  { id: "apostila", nome: "Vida e Ministério" },
+type Aba = "estudo" | "extras";
+
+const ABAS: { id: Aba; nome: string }[] = [
+  { id: "estudo", nome: "Estudo" },
   { id: "extras", nome: "Extras" },
 ];
+
+type Semana = {
+  chave: string;
+  estudos: Publicacao[];
+  intervalo: { inicio: string; fim: string } | null;
+};
 
 const chaveSemana = (p: Publicacao) => intervaloDaPublicacao(p)?.inicio ?? `texto:${p.semana}`;
 const ordenarPorTitulo = (a: Publicacao, b: Publicacao) =>
   a.titulo.localeCompare(b.titulo, "pt-BR", { numeric: true, sensitivity: "base" }) ||
   b.criado_em - a.criado_em;
 
+/** Cápsula da aba Estudo: um estudo da semana (meio de semana ou fim de semana).
+ *  Sem publicação, mostra o estado vazio nomeado — nunca um bloco mudo. */
+function CapsulaEstudo({
+  reuniao,
+  pub,
+  aoExcluir,
+}: {
+  reuniao: "meio de semana" | "fim de semana";
+  pub?: Publicacao;
+  aoExcluir: (p: Publicacao) => void;
+}) {
+  if (!pub)
+    return (
+      <div className="rounded-lg border border-dashed px-4 py-6 text-center">
+        <BookOpen className="mx-auto mb-2 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+        <p className="text-sm font-medium text-muted-foreground">
+          Não possui o estudo de {reuniao}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {reuniao === "meio de semana"
+            ? "Importe a apostila Vida e Ministério desta semana."
+            : "Importe a Sentinela desta semana."}
+        </p>
+      </div>
+    );
+  const cor = reuniao === "meio de semana" ? "var(--sec-tesouros)" : "var(--reference)";
+  return (
+    <div className="flex items-stretch rounded-lg bg-card px-3">
+      <Link
+        to="/estudo/$id"
+        params={{ id: pub.id }}
+        className="flex min-w-0 flex-1 items-center gap-3 py-4 pr-2"
+      >
+        <span
+          className="grid h-16 w-12 shrink-0 place-items-center rounded-md"
+          style={{ background: `color-mix(in srgb, ${cor} 16%, transparent)`, color: cor }}
+          aria-hidden="true"
+        >
+          <BookOpen className="h-6 w-6" />
+        </span>
+        <span className="min-w-0">
+          <span className="mb-0.5 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {reuniao === "meio de semana"
+              ? "Reunião de meio de semana"
+              : "Reunião de fim de semana"}
+          </span>
+          <span className="block text-lg font-semibold leading-snug">{pub.titulo}</span>
+        </span>
+      </Link>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label={`Excluir ${pub.titulo}`}
+        className="my-auto text-muted-foreground hover:text-destructive"
+        onClick={() => aoExcluir(pub)}
+      >
+        <Trash2 />
+      </Button>
+    </div>
+  );
+}
+
 function Biblioteca() {
   const [pubs, setPubs] = useState<Publicacao[]>([]);
-  const [aba, setAba] = useState<TipoPub>("sentinela");
+  const [aba, setAba] = useState<Aba>("estudo");
   const [aberto, setAberto] = useState(false);
   const [backup, setBackup] = useState(false);
   const semanaAtiva = useRef<HTMLButtonElement>(null);
-  const [selecionadas, setSelecionadas] = useState<Partial<Record<TipoPub, string>>>({});
+  const [selecionadas, setSelecionadas] = useState<Partial<Record<Aba, string>>>({});
   const recarregar = () => listarPublicacoes().then(setPubs);
   useEffect(() => {
     recarregar();
@@ -85,18 +153,36 @@ function Biblioteca() {
   const daAba = useMemo(
     () =>
       pubs
-        .filter((p) => p.tipo === aba)
+        .filter((p) =>
+          aba === "extras" ? p.tipo === "extras" : p.tipo === "apostila" || p.tipo === "sentinela",
+        )
         .sort(aba === "extras" ? ordenarPorTitulo : ordenarSemanasCronologicamente),
     [pubs, aba],
   );
-  const semanas = useMemo(() => {
+  // Agrupa por semana: meio de semana e fim de semana da mesma semana ficam juntos
+  // (intervalos que se sobrepõem ou texto de semana idêntico), espelhando a aba
+  // Reuniões do JW Library. Quem não tem data fica em grupo próprio.
+  const semanas = useMemo<Semana[]>(() => {
     if (aba === "extras") return []; // Extras não usa seletor de semanas
-    const grupos = new Map<string, Publicacao[]>();
-    for (const p of daAba) grupos.set(chaveSemana(p), [...(grupos.get(chaveSemana(p)) ?? []), p]);
-    return Array.from(grupos, ([chave, estudos]) => {
-      const primeiro = estudos[0];
-      return { chave, estudos, intervalo: primeiro ? intervaloDaPublicacao(primeiro) : null };
-    });
+    const grupos: Semana[] = [];
+    for (const p of daAba) {
+      const iv = intervaloDaPublicacao(p);
+      const alvo = grupos.find(
+        (g) =>
+          g.estudos.some((e) => e.semana === p.semana) ||
+          (iv && g.intervalo && g.intervalo.inicio <= iv.fim && g.intervalo.fim >= iv.inicio),
+      );
+      if (alvo) {
+        alvo.estudos.push(p);
+        if (iv && !alvo.intervalo) {
+          alvo.intervalo = iv;
+          alvo.chave = iv.inicio;
+        }
+      } else {
+        grupos.push({ chave: chaveSemana(p), estudos: [p], intervalo: iv });
+      }
+    }
+    return grupos;
   }, [daAba, aba]);
 
   const escolhaPadrao = aba === "extras" ? null : escolherSemanaInicial(daAba);
@@ -110,7 +196,14 @@ function Biblioteca() {
     ? semanaSelecionada.intervalo.inicio <= hojeIso() &&
       semanaSelecionada.intervalo.fim >= hojeIso()
     : false;
-  const listaAtual = aba === "extras" ? daAba : (semanaSelecionada?.estudos ?? []);
+  const meiosDaSemana = (semanaSelecionada?.estudos ?? []).filter((p) => p.tipo === "apostila");
+  const finsDaSemana = (semanaSelecionada?.estudos ?? []).filter((p) => p.tipo === "sentinela");
+  const excluirEstudo = async (p: Publicacao) => {
+    if (confirm(`Excluir “${p.titulo}”?`)) {
+      await excluirPublicacao(p.id);
+      recarregar();
+    }
+  };
   useEffect(() => {
     semanaAtiva.current?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   }, [aba, chaveSelecionada]);
@@ -136,7 +229,7 @@ function Biblioteca() {
       </header>
 
       <div
-        className="grid grid-cols-3 border-b bg-card px-4 pt-2"
+        className="grid grid-cols-2 border-b bg-card px-4 pt-2"
         role="tablist"
         aria-label="Publicação"
       >
@@ -195,7 +288,7 @@ function Biblioteca() {
             <p className="mt-1 text-sm">
               {aba === "extras"
                 ? "Importe um livro ou uma brochura do jw.org e marque “Salvar na aba Extras”."
-                : "Importe uma revista ou uma matéria do jw.org."}
+                : "Importe a apostila Vida e Ministério ou a Sentinela da semana no jw.org."}
             </p>
           </div>
         ) : (
@@ -212,46 +305,63 @@ function Biblioteca() {
                   Mostrando a anterior mais recente.
                 </p>
               )}
-            <ul className="space-y-3">
-              {listaAtual.map((p) => (
-                <li key={p.id} className="flex items-stretch rounded-lg bg-card px-3">
-                  <Link
-                    to="/estudo/$id"
-                    params={{ id: p.id }}
-                    className="flex min-w-0 flex-1 items-center gap-3 py-4 pr-2"
-                  >
-                    <span
-                      className="grid h-16 w-12 shrink-0 place-items-center rounded-md bg-secondary text-section"
-                      aria-hidden="true"
+            {aba === "estudo" ? (
+              <div className="space-y-3" aria-label="Estudos da semana">
+                {meiosDaSemana.length === 0 && (
+                  <CapsulaEstudo reuniao="meio de semana" aoExcluir={excluirEstudo} />
+                )}
+                {meiosDaSemana.map((p) => (
+                  <CapsulaEstudo
+                    key={p.id}
+                    reuniao="meio de semana"
+                    pub={p}
+                    aoExcluir={excluirEstudo}
+                  />
+                ))}
+                {finsDaSemana.length === 0 && (
+                  <CapsulaEstudo reuniao="fim de semana" aoExcluir={excluirEstudo} />
+                )}
+                {finsDaSemana.map((p) => (
+                  <CapsulaEstudo
+                    key={p.id}
+                    reuniao="fim de semana"
+                    pub={p}
+                    aoExcluir={excluirEstudo}
+                  />
+                ))}
+              </div>
+            ) : (
+              <ul className="space-y-3">
+                {daAba.map((p) => (
+                  <li key={p.id} className="flex items-stretch rounded-lg bg-card px-3">
+                    <Link
+                      to="/estudo/$id"
+                      params={{ id: p.id }}
+                      className="flex min-w-0 flex-1 items-center gap-3 py-4 pr-2"
                     >
-                      <BookOpen className="h-6 w-6" />
-                    </span>
-                    <span className="min-w-0">
-                      {aba !== "extras" && (
-                        <span className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <CalendarDays className="h-3.5 w-3.5" /> {p.semana}
-                        </span>
-                      )}
-                      <span className="block text-lg font-semibold leading-snug">{p.titulo}</span>
-                    </span>
-                  </Link>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Excluir ${p.titulo}`}
-                    className="my-auto text-muted-foreground hover:text-destructive"
-                    onClick={async () => {
-                      if (confirm(`Excluir “${p.titulo}”?`)) {
-                        await excluirPublicacao(p.id);
-                        recarregar();
-                      }
-                    }}
-                  >
-                    <Trash2 />
-                  </Button>
-                </li>
-              ))}
-            </ul>
+                      <span
+                        className="grid h-16 w-12 shrink-0 place-items-center rounded-md bg-secondary text-section"
+                        aria-hidden="true"
+                      >
+                        <BookOpen className="h-6 w-6" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-lg font-semibold leading-snug">{p.titulo}</span>
+                      </span>
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Excluir ${p.titulo}`}
+                      className="my-auto text-muted-foreground hover:text-destructive"
+                      onClick={() => excluirEstudo(p)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </>
         )}
       </section>
@@ -272,7 +382,7 @@ function Biblioteca() {
           onClose={() => setAberto(false)}
           onDone={(tipo) => {
             setAberto(false);
-            setAba(tipo);
+            setAba(tipo === "extras" ? "extras" : "estudo");
             recarregar();
           }}
         />
