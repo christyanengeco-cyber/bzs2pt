@@ -3,9 +3,9 @@
  *  (o Lovable nem sempre publica o último commit do GitHub de imediato).
  *  Atualizar estes valores a cada alteração relevante enviada para o app. */
 export const BUILD = {
-  versao: "1.3.1",
+  versao: "1.3.2",
   data: "05/11/2026",
-  resumo: "Banner de seção do Vida e Ministério fiel ao JW Library (faixa preenchida)",
+  resumo: "Destaques na Sentinela: subtítulos, quadros informativos e perguntas",
 };
 
 export const ROTULO_BUILD = `v${BUILD.versao} · ${BUILD.data}`;

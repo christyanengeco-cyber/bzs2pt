@@ -196,6 +196,13 @@
 .watchtower-paragraph[data-estilo="subtitulo"] .publication-text,
 .watchtower-paragraph[data-estilo="titulo"] .publication-text { font-size: 1.15em; font-weight: 700; }
 .watchtower-paragraph[data-estilo="subtitulo"] { margin-top: 32px; }
+/* M7 — destaques da Sentinela, no padrão do app: subtítulos em azul de referência,
+   quadros informativos como bloco destacado e perguntas de estudo em corpo cheio. */
+.watchtower-paragraph[data-estilo="subtitulo"] .publication-text { color: var(--reference); }
+.watchtower-paragraph[data-faixa="true"] { background: color-mix(in srgb, var(--reference) 9%, var(--card)); border-inline-start: 3px solid var(--reference); margin-inline: 0; padding-inline: 16px; padding-top: 8px; padding-bottom: 12px; margin-bottom: 0; }
+.watchtower-paragraph[data-faixa="true"] + .publication-paragraph:not([data-faixa="true"]) { margin-top: 16px; }
+.watchtower-paragraph[data-faixa="true"][data-estilo="titulo"] { padding-top: 16px; }
+.watchtower-paragraph.publication-question .publication-text { font-size: 1em; }
 .publication-reader textarea { font-size: .95em; }
 
 @layer base {
