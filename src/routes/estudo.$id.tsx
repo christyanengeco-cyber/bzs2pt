@@ -25,6 +25,8 @@ import {
 import {
   LIXO,
   buscarReferencia,
+  buscarVideoBiblia,
+  idsBiblia,
   linkEstudoLivro,
   resolverEstudoLivro,
   importarUrl,
@@ -788,7 +790,18 @@ function PainelReferencia({
     // Links de vídeo (ex.: “Mostre o VÍDEO” da apostila) podem vir em vários formatos
     // de URL; EH_LINK_VIDEO_RE cobre /biblioteca/videos/, /videos/, mid=, .mp4 direto,
     // finder com lank/docid e a apostila em vídeo (mwbv).
-    if (EH_LINK_VIDEO_RE.test(href)) {
+    const ehBiblia = /\/biblia\//i.test(href) || idsBiblia(href).length > 0;
+    if (ehBiblia) {
+      setBuscaVideo(true);
+      buscarVideoBiblia(href)
+        .then((v) => {
+          if (vivo) setVideo(v ?? null);
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (vivo) setBuscaVideo(false);
+        });
+    } else if (EH_LINK_VIDEO_RE.test(href)) {
       setBuscaVideo(true);
       extrairVideo(href)
         .then((v) => {
@@ -916,6 +929,9 @@ function PainelReferencia({
                 src={video.mp4}
                 controls
                 playsInline
+                onLoadedMetadata={(e) => {
+                  if (video.inicio) e.currentTarget.currentTime = video.inicio;
+                }}
                 className="w-full rounded-lg bg-black"
                 aria-label={video.titulo}
               />

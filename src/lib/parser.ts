@@ -174,6 +174,56 @@ function findMarkers(obj: unknown, out: Marker[] = []): Marker[] {
   return out;
 }
 
+/** Itens de mídia do GETPUBMEDIALINKS (um por faixa/resolução), com docid/track próprios. */
+export interface ItemMidia {
+  url: string;
+  docid?: string | undefined;
+  track?: string | undefined;
+  markers: Marker[];
+}
+export function findItensMidia(obj: unknown, out: ItemMidia[] = []): ItemMidia[] {
+  if (Array.isArray(obj)) obj.forEach((o) => findItensMidia(o, out));
+  else if (obj && typeof obj === "object") {
+    const o = obj as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const u = o.file?.url;
+    if (typeof u === "string" && /\.mp4(\?|$)/i.test(u)) {
+      out.push({
+        url: u,
+        docid: o.docid != null && String(o.docid) !== "0" ? String(o.docid) : undefined,
+        track: o.track != null ? String(o.track) : undefined,
+        markers: o.markers ? findMarkers(o.markers) : [],
+      });
+    } else Object.values(o).forEach((v) => findItensMidia(v, out));
+  }
+  return out;
+}
+
+/** docid do próprio documento (classe docId-NNN no body/article ou data-docid). */
+export function docIdDaPagina(doc: Document): string | undefined {
+  const cls = [doc.body?.className ?? "", doc.querySelector("article")?.className ?? ""].join(" ");
+  return (
+    cls.match(/docId-(\d+)/i)?.[1] ||
+    doc.querySelector("[data-docid]")?.getAttribute("data-docid")?.match(/\d+/)?.[0] ||
+    undefined
+  );
+}
+
+/** Escolhe o vídeo e os marcadores somente da faixa/documento desta página. */
+export function selecionarFaixa(
+  itens: ItemMidia[],
+  docId?: string,
+  track?: string,
+): { mp4: string; markers: Marker[] } | undefined {
+  let sel: ItemMidia[] = [];
+  if (docId) sel = itens.filter((i) => i.docid === docId);
+  if (!sel.length && track) sel = itens.filter((i) => i.track === track);
+  if (!sel.length) return undefined;
+  const mp4 = escolherMp4(sel.map((i) => i.url));
+  if (!mp4) return undefined;
+  const markers = sel.find((i) => i.markers.length)?.markers ?? [];
+  return { mp4, markers };
+}
+
 function parseVtt(vtt: string): number[] {
   const res: number[] = [];
   for (const m of vtt.matchAll(/(\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3}\s*-->/g))
@@ -246,6 +296,8 @@ function escolherMp4(mp4s: string[]): string | undefined {
 export interface VideoEncontrado {
   titulo: string;
   mp4: string;
+  /** Segundo inicial (ex.: versículo citado), quando conhecido. */
+  inicio?: number | undefined;
 }
 
 /** Links que representam um vídeo do jw.org mesmo sem conter "video": o finder com
@@ -391,24 +443,41 @@ export async function importarHtml(html: string, urlOrigem: string): Promise<Res
   const jsonUrls = Array.from(doc.querySelectorAll("[data-jsonurl]")).map((e) =>
     abs(e.getAttribute("data-jsonurl")!),
   );
-  const docId = jsonUrls.map((u) => u.match(/docid=(\d+)/)?.[1]).find(Boolean);
+  const docId =
+    docIdDaPagina(doc) || jsonUrls.map((u) => u.match(/docid=(\d+)/)?.[1]).find(Boolean);
+  const trackPagina = jsonUrls
+    .filter((u) => /mp4/i.test(u))
+    .map((u) => u.match(/[?&]track=(\d+)/)?.[1])
+    .find(Boolean);
   const ordenadas = [...jsonUrls.filter((u) => /track=/.test(u) && /mp4/i.test(u)), ...jsonUrls];
   const pids = new Set(
     Array.from(doc.querySelectorAll("[data-pid]")).map((e) => e.getAttribute("data-pid") ?? ""),
   );
-  const blobs = jsonBlobs.map((j) => ({ mp4s: findMp4(j), markers: findMarkers(j) }));
+  const itens: ItemMidia[] = [];
+  const blobs = jsonBlobs.map((j) => {
+    itens.push(...findItensMidia(j));
+    return { mp4s: findMp4(j), markers: findMarkers(j) };
+  });
   for (const ju of Array.from(new Set(ordenadas)).slice(0, 8)) {
     try {
       const j: unknown = JSON.parse((await fetchProxy(ju)).texto);
+      itens.push(...findItensMidia(j));
       blobs.push({ mp4s: findMp4(j), markers: findMarkers(j) });
     } catch {
       /* ignore */
     }
   }
+  const faixa = selecionarFaixa(itens, docId, trackPagina);
   const pontos = (b: { markers: Marker[] }) =>
     b.markers.filter((m) => m.label && pids.has(m.label)).length;
   const comMp4 = blobs.filter((b) => b.mp4s.length);
-  if (comMp4.length) {
+  if (faixa) {
+    // Vídeo exato desta página (pacotes de revista trazem todas as faixas juntas).
+    video_url = faixa.mp4;
+    markers = faixa.markers.length
+      ? faixa.markers
+      : blobs.flatMap((b) => b.markers).filter((m) => m.docId === docId);
+  } else if (comMp4.length) {
     const melhor = [...comMp4].sort((a, b) => pontos(b) - pontos(a))[0]!;
     video_url =
       melhor.mp4s.find((m) => /720p/.test(m)) ||
@@ -565,13 +634,45 @@ export interface ConteudoReferencia {
 }
 
 /** Busca só o trecho referenciado (versículos ou início do artigo), sem importar tudo. */
+/** Códigos de versículo (LLCCCVVV) presentes no link da Bíblia (#v… ou bible=…). */
+export function idsBiblia(href: string): number[] {
+  const hash = href.split("#")[1] ?? "";
+  const doHash = hash.match(/\d{6,}/g) ?? [];
+  const param = href.match(/[?&]bible=([\d-]+)/)?.[1]?.match(/\d{6,}/g) ?? [];
+  return [...doHash, ...param].map(Number);
+}
+
+/** Vídeo em Libras do capítulo bíblico (pub=nwt, LSB), escolhido pelo livro/capítulo do link. */
+export async function buscarVideoBiblia(href: string): Promise<VideoEncontrado | undefined> {
+  const id = idsBiblia(href)[0];
+  if (!id) return undefined;
+  const livro = Math.floor(id / 1_000_000);
+  const cap = Math.floor(id / 1000) % 1000;
+  const verso = id % 1000;
+  const api = `https://b.jw-cdn.org/apis/pub-media/GETPUBMEDIALINKS?output=json&pub=nwt&fileformat=MP4&alllangs=0&langwritten=LSB&txtCMSLang=LSB&booknum=${livro}&track=${cap}`;
+  const j: unknown = JSON.parse((await fetchProxy(api)).texto);
+  const itens = findItensMidia(j).filter((i) => !i.track || i.track === String(cap));
+  const mp4 = escolherMp4(itens.map((i) => i.url));
+  if (!mp4) return undefined;
+  const marcas = itens.flatMap((i) => i.markers);
+  const m = marcas.find((x) => x.label === String(verso) || x.label === String(id));
+  return { titulo: `Capítulo ${cap}`, mp4, inicio: m?.startTime };
+}
+
 export async function buscarReferencia(href: string): Promise<ConteudoReferencia> {
-  const html = (await fetchProxy(href.split("#")[0] ?? href)).texto;
-  const doc = new DOMParser().parseFromString(html, "text/html");
   const limpar = (x: string | null | undefined) => (x ?? "").replace(/\s+/g, " ").trim();
+  const ids = idsBiblia(href);
+  // Bíblia: o jw.org em Libras não tem texto — busca o texto em português (Tradução do Novo Mundo).
+  let alvoUrl = href.split("#")[0] ?? href;
+  if (ids.length) {
+    const ini = ids[0]!,
+      fim = ids[ids.length - 1]!;
+    alvoUrl = `https://www.jw.org/finder?wtlocale=T&pub=nwtsty&bible=${ini}${fim !== ini ? "-" + fim : ""}`;
+  }
+  const html = (await fetchProxy(alvoUrl)).texto;
+  const doc = new DOMParser().parseFromString(html, "text/html");
   const titulo = limpar(doc.querySelector("article h1, h1")?.textContent) || limpar(doc.title);
   const hash = href.split("#")[1] ?? "";
-  const ids = hash.match(/\d{6,}/g)?.map(Number) ?? [];
   const numPar = hash.match(/^p(\d+)$/)?.[1];
   const biblia = /\/biblia\//i.test(href) || ids.length > 0;
   if (ids.length) {
