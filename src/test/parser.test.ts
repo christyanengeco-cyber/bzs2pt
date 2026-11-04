@@ -70,3 +70,19 @@ describe("URL canônica de páginas do jw.org", () => {
     expect(extrairUrlCanonical(pt)).toBeUndefined();
   });
 });
+
+import { selecionarFaixa, idsBiblia } from "@/lib/parser";
+describe("seleção de faixa", () => {
+  it("usa só o vídeo do docid da página, não a faixa 1 da revista", () => {
+    const itens = [
+      { url: "https://x/mwb_f1_720p.mp4", docid: "202026400", track: "1", markers: [] },
+      { url: "https://x/mwb_f10_720p.mp4", docid: "202026478", track: "10", markers: [{ label: "4", startTime: 11.144 }] },
+    ];
+    const r = selecionarFaixa(itens, "202026478");
+    expect(r?.mp4).toBe("https://x/mwb_f10_720p.mp4");
+    expect(r?.markers[0]?.startTime).toBe(11.144);
+  });
+  it("lê versículos do link da Bíblia", () => {
+    expect(idsBiblia("https://www.jw.org/bzs/biblioteca/biblia/nwt/livros/proverbios/3/#v20003005")).toEqual([20003005]);
+  });
+});
