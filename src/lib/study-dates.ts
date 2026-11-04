@@ -109,3 +109,32 @@ export function escolherSemanaInicial(publicacoes: Publicacao[], hoje = hojeIso(
   const primeira = anterior?.publicacao ?? [...publicacoes].sort(ordenarPorSemana)[0];
   return primeira ? { id: primeira.id, atual: false } : null;
 }
+
+const MESES_CURTOS = [
+  "jan",
+  "fev",
+  "mar",
+  "abr",
+  "mai",
+  "jun",
+  "jul",
+  "ago",
+  "set",
+  "out",
+  "nov",
+  "dez",
+];
+
+/** "26 out–1º nov" a partir do intervalo ISO; o ano só entra quando difere do atual. */
+export function formatarIntervalo(
+  intervalo: { inicio: string; fim: string },
+  anoReferencia = new Date().getFullYear(),
+): string {
+  const [ai, mi, di] = intervalo.inicio.split("-").map(Number);
+  const [af, mf, df] = intervalo.fim.split("-").map(Number);
+  if (!ai || !mi || !di || !af || !mf || !df) return "";
+  const dia = (d: number) => (d === 1 ? "1º" : String(d));
+  const ano = af !== anoReferencia ? ` de ${af}` : "";
+  if (mi === mf && ai === af) return `${dia(di)}–${df} ${MESES_CURTOS[mf - 1]}${ano}`;
+  return `${dia(di)} ${MESES_CURTOS[mi - 1]}–${dia(df)} ${MESES_CURTOS[mf - 1]}${ano}`;
+}

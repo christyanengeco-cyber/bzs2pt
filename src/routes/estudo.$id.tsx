@@ -36,6 +36,7 @@ import {
   type VideoEncontrado,
 } from "@/lib/parser";
 import { salvarPublicacao, listarPublicacoes } from "@/lib/db";
+import { intervaloDaPublicacao, formatarIntervalo } from "@/lib/study-dates";
 import { SectionIcon } from "@/components/SectionIcon";
 import { identificarSecao, mesclarEstrutura, type Secao } from "@/lib/publication-layout";
 import { Button } from "@/components/ui/button";
@@ -336,6 +337,12 @@ function Leitor() {
   }
 
   if (!pub) return <div className="p-8 text-center text-muted-foreground">Carregando…</div>;
+  // M1 — título por data de uso, como no JW Library: "Estudo de A Sentinela · 26 out–1º nov".
+  const rotuloSentinela = (() => {
+    if (pub.tipo !== "sentinela") return null;
+    const iv = intervaloDaPublicacao(pub);
+    return iv ? `Estudo de A Sentinela · ${formatarIntervalo(iv)}` : null;
+  })();
   const navLivro = navigateLivro;
 
   return (
@@ -504,8 +511,17 @@ function Leitor() {
           className={`publication-reader mx-auto max-w-2xl pb-24 pt-5 ${pub.tipo === "apostila" ? "workbook-reader" : "watchtower-reader"}`}
           style={{ fontSize: "calc(1rem * var(--escala-texto, 1))" }}
         >
-          <h1 className="publication-title">{pub.titulo}</h1>
-          {pub.tipo !== "apostila" && <p className="publication-week">{pub.semana}</p>}
+          {rotuloSentinela ? (
+            <>
+              <h1 className="publication-title">{rotuloSentinela}</h1>
+              <p className="publication-week">{pub.titulo}</p>
+            </>
+          ) : (
+            <>
+              <h1 className="publication-title">{pub.titulo}</h1>
+              {pub.tipo !== "apostila" && <p className="publication-week">{pub.semana}</p>}
+            </>
+          )}
           {modoTempo && (
             <p className="mb-4 rounded-xl bg-accent p-3 text-sm text-accent-foreground">
               Modo de edição ligado: o relógio em cada trecho grava o tempo atual do vídeo e o olho
