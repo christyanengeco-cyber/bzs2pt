@@ -24,7 +24,8 @@ export interface Paragrafo {
   rotulo?: string;
   imagem?: string;
   imagem_alt?: string;
-  estilo?: "semana" | "secao" | "subtitulo" | "titulo" | "cantico" | "corpo" | "legenda" | undefined;
+  estilo?:
+    "semana" | "secao" | "subtitulo" | "titulo" | "cantico" | "corpo" | "legenda" | undefined;
   faixa?: boolean | undefined;
   resposta?: boolean | undefined;
   meps_id?: string | undefined;

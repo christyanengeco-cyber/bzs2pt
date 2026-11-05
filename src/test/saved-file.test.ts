@@ -74,7 +74,9 @@ describe("extrairUrlDeHtmlSalvo", () => {
   it("rejeita arquivos sem URL do jw.org", () => {
     expect(extrairUrlDeHtmlSalvo("<html><head></head><body></body></html>")).toBe("");
     expect(
-      extrairUrlDeHtmlSalvo('<html><head><link rel="canonical" href="https://exemplo.com/"></head></html>'),
+      extrairUrlDeHtmlSalvo(
+        '<html><head><link rel="canonical" href="https://exemplo.com/"></head></html>',
+      ),
     ).toBe("");
   });
 });

@@ -29,7 +29,8 @@ export function respostaUtil(t: string): boolean {
   if (!s) return false;
   // Páginas reais do jw.org agora embutem o script do WAF no <head>; só é
   // desafio quando não há conteúdo real da página.
-  const temConteudo = s.length > 20000 && /<article|bodyTxt|docSubContent|<main|mediaItems/i.test(s);
+  const temConteudo =
+    s.length > 20000 && /<article|bodyTxt|docSubContent|<main|mediaItems/i.test(s);
   if (!temConteudo && DESAFIO_RE.test(s)) return false;
   return (
     /^<!doctype/i.test(s) ||
@@ -65,9 +66,7 @@ export async function fetchProxy(url: string): Promise<PaginaBaixada> {
       cacheFetch.set(url, { texto: r.texto, url: r.url, expira: Date.now() + TEMPO_CACHE });
       return { texto: r.texto, url: r.url };
     }
-    anotar(
-      `jw.org devolveu resposta inesperada: "${r.texto.slice(0, 80).replace(/\s+/g, " ")}"`,
-    );
+    anotar(`jw.org devolveu resposta inesperada: "${r.texto.slice(0, 80).replace(/\s+/g, " ")}"`);
   } catch (e) {
     anotar(e instanceof Error ? e.message : String(e));
   }
@@ -850,7 +849,7 @@ function decodificarQuotedPrintable(s: string): string {
   const limpo = s.replace(/=\r?\n/g, "");
   const bytes = new Uint8Array(limpo.length);
   let n = 0;
-  for (let i = 0; i < limpo.length; ) {
+  for (let i = 0; i < limpo.length;) {
     const c = limpo[i]!;
     if (c === "=" && /^[0-9A-Fa-f]{2}/.test(limpo.slice(i + 1, i + 3))) {
       bytes[n++] = parseInt(limpo.slice(i + 1, i + 3), 16)!;
@@ -888,7 +887,10 @@ export function decodificarPaginaSalva(
       for (const parte of conteudo.split("--" + boundary)) {
         if (!/text\/html/i.test(parte.slice(0, 500))) continue;
         const cod = parte.match(/Content-Transfer-Encoding:\s*(\S+)/i)?.[1]?.toLowerCase() ?? "";
-        const corpo = parte.split(/\r?\n\r?\n/).slice(1).join("\n\n");
+        const corpo = parte
+          .split(/\r?\n\r?\n/)
+          .slice(1)
+          .join("\n\n");
         const html = cod.includes("base64")
           ? decodificarBase64(corpo)
           : decodificarQuotedPrintable(corpo);

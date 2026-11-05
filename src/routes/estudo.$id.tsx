@@ -124,7 +124,7 @@ function Leitor() {
       setControles(true);
       clearTimeout(ctrlTimer.current);
     } else cutucar();
-  }, [tocando]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tocando]);
   useEffect(() => {
     const f = () => setTelaCheia(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", f);
@@ -162,7 +162,7 @@ function Leitor() {
     };
     document.addEventListener("selectionchange", f);
     return () => document.removeEventListener("selectionchange", f);
-  }); // eslint-disable-line react-hooks/exhaustive-deps
+  });
   const estaOculto = (p: Paragrafo) => p.oculto ?? LIXO.test(p.texto_portugues);
   const visiveis = paras.filter((p) => !estaOculto(p));
   const ocultos = paras.filter(estaOculto);

@@ -22,10 +22,10 @@ agente, que alterar este código. Leia antes de mexer em fluxo que já funciona.
 
 ## A assimetria que dimensiona toda guarda
 
-| Erro | Custo |
-|---|---|
-| Falso positivo (recusar página boa) | Função central 100% morta, erro confuso, dias de depuração |
-| Falso negativo (aceitar página ruim) | Sintoma visível na hora, recuperável com retry |
+| Erro                                 | Custo                                                      |
+| ------------------------------------ | ---------------------------------------------------------- |
+| Falso positivo (recusar página boa)  | Função central 100% morta, erro confuso, dias de depuração |
+| Falso negativo (aceitar página ruim) | Sintoma visível na hora, recuperável com retry             |
 
 Toda guarda é dimensionada por esta tabela **antes** de existir. Nunca colocar o
 custo pior no erro mais provável.
@@ -41,7 +41,7 @@ custo pior no erro mais provável.
 
 ### Design — guardas e detectores
 
-5. **Detecção positiva por padrão.** Definir o que a página *boa* precisa ter e aceitar por isso; marcador de "ruim" só rejeita na ausência do sinal positivo.
+5. **Detecção positiva por padrão.** Definir o que a página _boa_ precisa ter e aceitar por isso; marcador de "ruim" só rejeita na ausência do sinal positivo.
 6. **Falhar aberto quando os custos são assimétricos.** Recusar conteúdo bom mata a função; aceitar página ruim dá sintoma visível e recuperável. A guarda escolhe o erro barato.
 7. **Detector sem calibração é palpite.** Regex de marcador só entra com amostra real de cada classe testada contra ela — e é revisada quando o site muda.
 8. **Observar antes de bloquear.** Suspeita nova começa como telemetria/diagnóstico; bloqueio só depois de dados que provem a ameaça.
@@ -60,4 +60,5 @@ custo pior no erro mais provável.
 3. A correção final segue o formato do `b4ce756`: sinal positivo de conteúdo no comando, checagem negativa só na ausência dele, nos dois pontos (servidor e parser).
 
 ---
+
 Estas diretrizes existem para que o custo desta regressão não se pague duas vezes.

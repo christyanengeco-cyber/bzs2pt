@@ -435,7 +435,8 @@ function ImportModal({
   const alternarMarcado = (u: string) =>
     setMarcados((s) => {
       const n = new Set(s);
-      n.has(u) ? n.delete(u) : n.add(u);
+      if (n.has(u)) n.delete(u);
+      else n.add(u);
       return n;
     });
 

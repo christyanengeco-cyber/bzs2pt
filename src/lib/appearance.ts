@@ -31,9 +31,12 @@ export function aplicarCor(cor: CorInterface) {
 }
 
 export function aplicarTema(tema: Tema) {
-  const escuro = tema === "escuro" || (tema === "sistema" && matchMedia("(prefers-color-scheme: dark)").matches);
+  const escuro =
+    tema === "escuro" || (tema === "sistema" && matchMedia("(prefers-color-scheme: dark)").matches);
   document.documentElement.classList.toggle("dark", escuro);
   document.documentElement.dataset["tema"] = tema;
   localStorage.setItem("tema", tema);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", escuro ? "#000000" : "#f5f5f5");
+  document
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute("content", escuro ? "#000000" : "#f5f5f5");
 }
