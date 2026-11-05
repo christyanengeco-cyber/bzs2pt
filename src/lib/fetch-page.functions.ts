@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { CONTEUDO_RE } from "./conteudo";
+import { sondarMidia } from "./sonda-midia";
 
 const PERMITIDOS = /(^|\.)(jw\.org|jw-cdn\.org|akamaihd\.net)$/i;
 
@@ -98,3 +99,15 @@ export const baixarPagina = createServerFn({ method: "POST" })
     guardarCache(data.url, texto, urlFinal);
     return { texto, url: urlFinal || data.url };
   });
+
+/** Confirmação de existência de uma variante de mídia no CDN (usada pela
+ *  recuperação de qualidade dos estudos salvos). Mesma porta de entrada do
+ *  baixarPagina: só endereço do jw.org e afins. */
+export const verificarMidia = createServerFn({ method: "POST" })
+  .inputValidator((d: { url: string }) => {
+    const u = new URL(d.url);
+    if (u.protocol !== "https:" || !PERMITIDOS.test(u.hostname))
+      throw new Error("Apenas links do jw.org são permitidos.");
+    return { url: u.href };
+  })
+  .handler(async ({ data }) => sondarMidia(data.url));

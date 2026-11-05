@@ -55,6 +55,7 @@ import {
   type Paragrafo,
   type Publicacao,
 } from "@/lib/db";
+import { recuperarVideoSalvo } from "@/lib/recuperacao-video";
 
 export const Route = createFileRoute("/estudo/$id")({
   head: () => ({
@@ -210,6 +211,27 @@ function Leitor() {
       vivo = false;
     };
   }, [id]);
+
+  // Auto-recuperação da qualidade: estudos importados antes da correção do
+  // seletor ficaram no _r240P.mp4 (o /720p/ não casava com o P maiúsculo do
+  // CDN). Ao abrir, o leitor confirma a variante em 720p no CDN e atualiza o
+  // estudo — sem apagar e importar tudo de novo. Sem confirmação, segue no
+  // vídeo atual (recuperação é oportunista: qualquer falha é silenciosa).
+  useEffect(() => {
+    if (!pub || !navigator.onLine) return;
+    let vivo = true;
+    recuperarVideoSalvo(pub)
+      .then((nova) => {
+        if (vivo && nova)
+          setPub((atual) => (atual && atual.id === pub.id ? { ...atual, video_url: nova } : atual));
+      })
+      .catch(() => {
+        /* sem vídeo novo, o estudo continua como está */
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [pub?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const seekTo = (s: number) => {
     const v = video.current;
