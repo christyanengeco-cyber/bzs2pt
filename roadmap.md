@@ -1,5 +1,9 @@
 # Roadmap
 
+- [ ] Mostrar as duas reuniões juntas, com seções distintas e seleção de semana confiável
+- [ ] Aceitar JSON de mídia e reduzir buscas repetidas durante a importação
+- [ ] Recuperar vídeos ausentes de estudos salvos e validar importação real
+
 - [x] Corrigir datas com ordinais e semanas já importadas
 - [x] Recuperar imagens da publicação e preservar uso offline
 - [x] Reproduzir divisões do leitor JW Library com ícones SVG e preservar ferramentas

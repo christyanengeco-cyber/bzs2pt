@@ -36,10 +36,19 @@ function guardarCache(chave: string, texto: string, url: string) {
  *  elementos reais do jw.org — de qualquer tamanho. Artigos curtos da apostila
  *  e páginas de referência têm menos de 20 KB; a checagem antiga de tamanho os
  *  descartava como bloqueio (falso positivo, o erro mais caro da assimetria). */
-async function examinar(r: Response): Promise<string> {
+async function examinar(r: Response, url: string): Promise<string> {
   const texto = await r.text();
   if (!texto.trim())
     throw new Error("jw.org devolveu uma resposta vazia (possível bloqueio de segurança)");
+  const alvo = new URL(url);
+  if (/(^|\.)jw-cdn\.org$/i.test(alvo.hostname) && alvo.pathname === "/apis/pub-media/GETPUBMEDIALINKS") {
+    try {
+      const json: unknown = JSON.parse(texto);
+      if (json && typeof json === "object" && "files" in json) return texto;
+    } catch { /* Retém o diagnóstico de resposta inválida. */ }
+    throw new Error("API de mídia: resposta sem JSON válido de arquivos");
+  }
+  if (/^WEBVTT\b/.test(texto.trim())) return texto;
   const titulo = /<title[^>]*>([^<]*)<\/title>/i.exec(texto.slice(0, 4000))?.[1] ?? "";
   if (/não encontrada|not found/i.test(titulo))
     throw new Error("o jw.org respondeu que a página não existe (não é um bloqueio)");
@@ -71,7 +80,7 @@ async function baixarDe(url: string): Promise<{ texto: string; urlFinal: string 
     throw new Error(`direto: desafio de segurança do jw.org (HTTP ${resposta.status})`);
   if (!resposta.ok) throw new Error(`direto: HTTP ${resposta.status}`);
   try {
-    const texto = await examinar(resposta);
+    const texto = await examinar(resposta, url);
     return { texto, urlFinal: resposta.url };
   } catch (e) {
     const m = e instanceof Error ? e.message : String(e);

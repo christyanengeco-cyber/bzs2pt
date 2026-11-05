@@ -17,7 +17,7 @@ const PRAZO_SONDA = 10000;
 /** Prazo com folga para navegadores antigos: AbortSignal.timeout não existe no
  *  Safari anterior ao 16 — sem a guarda, um iPhone velho quebraria a sonda. */
 const sinal = (ms: number) =>
-  typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(ms) : undefined;
+   typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(ms) : null;
 
 export interface SondaMidia {
   ok: boolean;

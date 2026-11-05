@@ -7,7 +7,7 @@ beforeEach(() => {
 
 describe("sondarMidia confirma a variante no CDN antes de trocar o vídeo", () => {
   it("HEAD 200 confirma sem precisar de segunda sonda", async () => {
-    const fetch = vi.fn(async () => new Response(null, { status: 200 }));
+    const fetch = vi.fn(async (_url: string, _options?: RequestInit) => new Response(null, { status: 200 }));
     vi.stubGlobal("fetch", fetch);
     const r = await sondarMidia("https://assets.jw-cdn.org/v/arquivo_r720P.mp4");
     expect(r).toEqual({ ok: true, status: 200 });

@@ -2,6 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
+  CalendarDays,
+  Users,
   Check,
   Clock3,
   DatabaseBackup,
@@ -34,6 +36,7 @@ import {
   ordenarSemanasCronologicamente,
 } from "@/lib/study-dates";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { agruparReunioes } from "@/lib/meeting-weeks";
 import { BackupDialog } from "@/components/BackupDialog";
 import { Button } from "@/components/ui/button";
 import { BUILD, ROTULO_BUILD } from "@/lib/build";
@@ -65,13 +68,6 @@ const ABAS: { id: Aba; nome: string }[] = [
   { id: "extras", nome: "Extras" },
 ];
 
-type Semana = {
-  chave: string;
-  estudos: Publicacao[];
-  intervalo: { inicio: string; fim: string } | null;
-};
-
-const chaveSemana = (p: Publicacao) => intervaloDaPublicacao(p)?.inicio ?? `texto:${p.semana}`;
 const ordenarPorTitulo = (a: Publicacao, b: Publicacao) =>
   a.titulo.localeCompare(b.titulo, "pt-BR", { numeric: true, sensitivity: "base" }) ||
   b.criado_em - a.criado_em;
@@ -101,7 +97,6 @@ function CapsulaEstudo({
         </p>
       </div>
     );
-  const cor = reuniao === "meio de semana" ? "var(--sec-tesouros)" : "var(--reference)";
   return (
     <div className="flex items-stretch rounded-lg bg-card px-3">
       <Link
@@ -110,8 +105,7 @@ function CapsulaEstudo({
         className="flex min-w-0 flex-1 items-center gap-3 py-4 pr-2"
       >
         <span
-          className="grid h-16 w-12 shrink-0 place-items-center rounded-md"
-          style={{ background: `color-mix(in srgb, ${cor} 16%, transparent)`, color: cor }}
+          className={`grid h-16 w-12 shrink-0 place-items-center rounded-md ${reuniao === "meio de semana" ? "bg-section/10 text-section" : "bg-primary/10 text-primary"}`}
           aria-hidden="true"
         >
           <BookOpen className="h-6 w-6" />
@@ -162,32 +156,11 @@ function Biblioteca() {
   // Agrupa por semana: meio de semana e fim de semana da mesma semana ficam juntos
   // (intervalos que se sobrepõem ou texto de semana idêntico), espelhando a aba
   // Reuniões do JW Library. Quem não tem data fica em grupo próprio.
-  const semanas = useMemo<Semana[]>(() => {
-    if (aba === "extras") return []; // Extras não usa seletor de semanas
-    const grupos: Semana[] = [];
-    for (const p of daAba) {
-      const iv = intervaloDaPublicacao(p);
-      const alvo = grupos.find(
-        (g) =>
-          g.estudos.some((e) => e.semana === p.semana) ||
-          (iv && g.intervalo && g.intervalo.inicio <= iv.fim && g.intervalo.fim >= iv.inicio),
-      );
-      if (alvo) {
-        alvo.estudos.push(p);
-        if (iv && !alvo.intervalo) {
-          alvo.intervalo = iv;
-          alvo.chave = iv.inicio;
-        }
-      } else {
-        grupos.push({ chave: chaveSemana(p), estudos: [p], intervalo: iv });
-      }
-    }
-    return grupos;
-  }, [daAba, aba]);
+  const semanas = useMemo(() => aba === "extras" ? [] : agruparReunioes(daAba), [daAba, aba]);
 
   const escolhaPadrao = aba === "extras" ? null : escolherSemanaInicial(daAba);
   const publicacaoPadrao = escolhaPadrao ? daAba.find((p) => p.id === escolhaPadrao.id) : undefined;
-  const chavePadrao = publicacaoPadrao ? chaveSemana(publicacaoPadrao) : undefined;
+  const chavePadrao = semanas.find((g) => g.estudos.some((p) => p.id === publicacaoPadrao?.id))?.chave;
   const chaveSelecionada = semanas.some((s) => s.chave === selecionadas[aba])
     ? selecionadas[aba]
     : chavePadrao;
@@ -306,7 +279,12 @@ function Biblioteca() {
                 </p>
               )}
             {aba === "estudo" ? (
-              <div className="space-y-3" aria-label="Estudos da semana">
+              <div className="space-y-8" aria-label="Estudos da semana">
+                <section aria-labelledby="meio-semana" className="space-y-3">
+                  <div className="flex items-center gap-3 border-l-4 border-section pl-3">
+                    <CalendarDays className="h-6 w-6 shrink-0 text-section" />
+                    <div><h2 id="meio-semana" className="text-lg font-bold text-section">Reunião de meio de semana</h2><p className="text-sm text-muted-foreground">Vida e Ministério</p></div>
+                  </div>
                 {meiosDaSemana.length === 0 && (
                   <CapsulaEstudo reuniao="meio de semana" aoExcluir={excluirEstudo} />
                 )}
@@ -318,6 +296,12 @@ function Biblioteca() {
                     aoExcluir={excluirEstudo}
                   />
                 ))}
+                </section>
+                <section aria-labelledby="fim-semana" className="space-y-3 border-t pt-7">
+                  <div className="flex items-center gap-3 border-l-4 border-primary pl-3">
+                    <Users className="h-6 w-6 shrink-0 text-primary" />
+                    <div><h2 id="fim-semana" className="text-lg font-bold text-primary">Reunião de fim de semana</h2><p className="text-sm text-muted-foreground">Estudo de A Sentinela</p></div>
+                  </div>
                 {finsDaSemana.length === 0 && (
                   <CapsulaEstudo reuniao="fim de semana" aoExcluir={excluirEstudo} />
                 )}
@@ -329,6 +313,7 @@ function Biblioteca() {
                     aoExcluir={excluirEstudo}
                   />
                 ))}
+                </section>
               </div>
             ) : (
               <ul className="space-y-3">
