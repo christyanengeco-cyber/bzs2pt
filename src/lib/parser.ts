@@ -299,11 +299,17 @@ async function videoDaPagina(
   return { titulo, mp4s, doc };
 }
 
+/** Preferência de qualidade do vídeo em Libras: 1080p → 720p → 480p → 360/240 →
+ *  primeiro da lista. O jw.org grava o sufixo com P maiúsculo (_r720P.mp4) — sem a
+ *  opção /i, o /720p/ antigo nunca casava com o arquivo real e a escolha caía no
+ *  primeiro da lista (_r240P.mp4, 426×240), borrando a expressão facial e os
+ *  movimentos rápidos das mãos, que são o conteúdo da Língua de Sinais. */
 function escolherMp4(mp4s: string[]): string | undefined {
   return (
-    mp4s.find((m) => /720p/.test(m)) ||
-    mp4s.find((m) => /480p/.test(m)) ||
-    mp4s.find((m) => /360|240/.test(m)) ||
+    mp4s.find((m) => /1080p/i.test(m)) ||
+    mp4s.find((m) => /720p/i.test(m)) ||
+    mp4s.find((m) => /480p/i.test(m)) ||
+    mp4s.find((m) => /360|240/i.test(m)) ||
     mp4s[0]
   );
 }
@@ -494,11 +500,7 @@ export async function importarHtml(html: string, urlOrigem: string): Promise<Res
       : blobs.flatMap((b) => b.markers).filter((m) => m.docId === docId);
   } else if (comMp4.length) {
     const melhor = [...comMp4].sort((a, b) => pontos(b) - pontos(a))[0]!;
-    video_url =
-      melhor.mp4s.find((m) => /720p/.test(m)) ||
-      melhor.mp4s.find((m) => /480p/.test(m)) ||
-      melhor.mp4s[0] ||
-      "";
+    video_url = escolherMp4(melhor.mp4s) || "";
     markers = pontos(melhor) > 0 ? melhor.markers : comMp4.flatMap((b) => b.markers);
   } else {
     markers = blobs.flatMap((b) => b.markers);

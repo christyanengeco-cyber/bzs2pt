@@ -3,10 +3,10 @@
  *  (o Lovable nem sempre publica o último commit do GitHub de imediato).
  *  Atualizar estes valores a cada alteração relevante enviada para o app. */
 export const BUILD = {
-  versao: "1.3.8",
+  versao: "1.3.9",
   data: "05/11/2026",
   resumo:
-    "Leitor ajustado ao retorno do import: player assume a proporção real do vídeo (sem faixas pretas de letterbox) e todo o espaçamento do texto acompanha a escala escolhida; figuras passam a preferir a variante de zoom do jw.org",
+    "Vídeo volta para alta definição: o jw.org grava o sufixo com P maiúsculo (_r720P.mp4) e o seletor antigo, em minúsculo, nunca casava — todo estudo ficava no _r240P.mp4 (426×240), que borra a expressão facial em Libras; agora a busca aceita 1080p, 720p e 480p sem distinguir maiúsculas",
 };
 
 export const ROTULO_BUILD = `v${BUILD.versao} · ${BUILD.data}`;

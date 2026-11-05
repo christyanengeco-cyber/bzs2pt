@@ -87,6 +87,23 @@ describe("seleção de faixa", () => {
     expect(r?.mp4).toBe("https://x/mwb_f10_720p.mp4");
     expect(r?.markers[0]?.startTime).toBe(11.144);
   });
+  it("pega a variante _r720P.mp4 do CDN na faixa da apostila (P maiúsculo)", () => {
+    const itens = [
+      {
+        url: "https://x/mwbv_BZS_202611_f1_r240P.mp4",
+        docid: "202026400",
+        track: "1",
+        markers: [],
+      },
+      {
+        url: "https://x/mwbv_BZS_202611_f1_r720P.mp4",
+        docid: "202026400",
+        track: "1",
+        markers: [],
+      },
+    ];
+    expect(selecionarFaixa(itens, "202026400")?.mp4).toContain("_r720P.mp4");
+  });
   it("lê versículos do link da Bíblia", () => {
     expect(
       idsBiblia("https://www.jw.org/bzs/biblioteca/biblia/nwt/livros/proverbios/3/#v20003005"),

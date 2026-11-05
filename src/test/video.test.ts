@@ -99,6 +99,51 @@ describe("extrairVideo", () => {
     expect((await extrairVideo(pag))?.mp4).toContain("720p");
   });
 
+  // O CDN do jw.org grava o sufixo com P maiúsculo (_r720P.mp4) — amostras reais
+  // baixadas pelo usuário. O seletor antigo, /720p/ sem /i, ignorava todas elas.
+  // Cada teste usa URL própria: o cacheFetch do parser guarda a página por URL.
+  describe("escolha de qualidade com o sufixo real do CDN (P maiúsculo)", () => {
+    const pag = (slug: string) => `https://www.jw.org/bzs/biblioteca/videos/vid_item12/${slug}/`;
+    const src = (q: string) =>
+      `<video><source src="https://assets.jw-cdn.org/pub-mwbv/v/mwbv_BZS_202611_item12_${q}.mp4"></video>`;
+
+    it("não cai no _r240P.mp4 quando o 720P vem com P maiúsculo (relato do usuário)", async () => {
+      paginas.set(
+        pag("720p"),
+        `<html><head><title>Item 12</title></head><body>${src("r240P")}${src("r720P")}</body></html>`,
+      );
+      const r = await extrairVideo(pag("720p"));
+      expect(r?.mp4).toContain("_r720P.mp4");
+      expect(r?.mp4).not.toContain("_r240P.mp4");
+    });
+
+    it("prefere 1080P quando o CDN traz as três variantes", async () => {
+      paginas.set(
+        pag("tres"),
+        `<html><head><title>Item 12</title></head><body>${src("r240P")}${src("r720P")}${src("r1080P")}</body></html>`,
+      );
+      expect((await extrairVideo(pag("tres")))?.mp4).toContain("_r1080P.mp4");
+    });
+
+    it("aceita 480P quando não há 1080P nem 720P", async () => {
+      paginas.set(
+        pag("480p"),
+        `<html><head><title>Item 12</title></head><body>${src("r240P")}${src("r480P")}</body></html>`,
+      );
+      expect((await extrairVideo(pag("480p")))?.mp4).toContain("_r480P.mp4");
+    });
+
+    it("sem variante reconhecida, fica com o primeiro MP4 da lista", async () => {
+      paginas.set(
+        pag("sem-sufixo"),
+        `<html><head><title>Item 12</title></head><body>
+          <video><source src="https://assets.jw-cdn.org/item12_completo.mp4"></video>
+        </body></html>`,
+      );
+      expect((await extrairVideo(pag("sem-sufixo")))?.mp4).toContain("item12_completo.mp4");
+    });
+  });
+
   it("segue o link canônico quando a página do finder não traz o MP4", async () => {
     const finder = "https://www.jw.org/finder?wtlocale=BZS&lank=item-7_1-VJS1";
     paginas.set(
