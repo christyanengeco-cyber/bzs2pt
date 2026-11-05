@@ -3,10 +3,10 @@
  *  (o Lovable nem sempre publica o último commit do GitHub de imediato).
  *  Atualizar estes valores a cada alteração relevante enviada para o app. */
 export const BUILD = {
-  versao: "1.3.6",
+  versao: "1.3.7",
   data: "05/11/2026",
   resumo:
-    "Importação por link mais resistente: espelho alternando modos, conexões presas cortadas, cache no servidor e links open?docid aceitos",
+    "Importação por link de volta ao download direto: timeout de 15s com User-Agent de celular, validação por conteúdo real do jw.org em vez de tamanho, espelho do Google removido",
 };
 
 export const ROTULO_BUILD = `v${BUILD.versao} · ${BUILD.data}`;

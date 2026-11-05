@@ -1,5 +1,6 @@
 import { uid, type Paragrafo, type Publicacao, type TipoPub } from "./db";
 import { baixarPagina } from "./fetch-page.functions";
+import { CONTEUDO_RE } from "./conteudo";
 import { extrairIntervaloSemana } from "./study-dates";
 import {
   elementosPublicacao,
@@ -27,10 +28,13 @@ const DESAFIO_RE =
 export function respostaUtil(t: string): boolean {
   const s = t.trim();
   if (!s) return false;
-  // Páginas reais do jw.org agora embutem o script do WAF no <head>; só é
-  // desafio quando não há conteúdo real da página.
-  const temConteudo =
-    s.length > 20000 && /<article|bodyTxt|docSubContent|<main|mediaItems/i.test(s);
+  // Sinal positivo de conteúdo (DIRETRIZES nº 5): marcadores reais do jw.org
+  // valem para página de QUALQUER tamanho — artigos curtos da apostila e
+  // páginas de referência têm menos de 20 KB, e a checagem antiga de tamanho
+  // os descartava como bloqueio (falso positivo, o erro mais caro). Páginas
+  // reais embutem o script do WAF no <head>; só é desafio quando não há
+  // conteúdo real da página.
+  const temConteudo = CONTEUDO_RE.test(s);
   if (!temConteudo && DESAFIO_RE.test(s)) return false;
   return (
     /^<!doctype/i.test(s) ||
