@@ -15,6 +15,16 @@ describe("estrutura das publicações", () => {
       "https://www.jw.org/image.jpg",
     );
   });
+
+  it("prefere o zoom (maior variante listada) antes do lg", () => {
+    const doc = new DOMParser().parseFromString(
+      '<figure><span class="jsRespImg" data-img-size-sm="/sm.jpg" data-img-size-lg="/lg.jpg" data-zoom="/xl.jpg"><noscript><img src="/xs.jpg"></noscript></span></figure>',
+      "text/html",
+    );
+    const els = elementosPublicacao(doc);
+    expect(els).toHaveLength(1);
+    expect(imagemDoElemento(els[0]!, "https://www.jw.org/pt/")).toBe("https://www.jw.org/xl.jpg");
+  });
   it("mantém IDs e tempos das respostas já preparadas ao recuperar imagens", () => {
     const antigo: Paragrafo = {
       id: "original",

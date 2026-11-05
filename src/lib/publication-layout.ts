@@ -25,7 +25,13 @@ export function elementosPublicacao(doc: Document) {
 }
 
 export function imagemDoElemento(el: Element, url: string) {
+  // O zoom (lightbox do jw.org) é a maior variante que a página lista — calibrado
+  // na prática contra a apostila real: para a figura de conteúdo o zoom é o
+  // próprio xl (1200px, mesmos bytes do lg); o lg fica de reserva e o md só
+  // entra se a página não listar nada maior. O src (fallback do noscript,
+  // 240px) é a última opção — nunca a primeira.
   const src =
+    el.getAttribute("data-zoom") ||
     el.getAttribute("data-img-size-lg") ||
     el.getAttribute("data-img-size-md") ||
     el.getAttribute("data-src") ||

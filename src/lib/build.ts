@@ -3,10 +3,10 @@
  *  (o Lovable nem sempre publica o último commit do GitHub de imediato).
  *  Atualizar estes valores a cada alteração relevante enviada para o app. */
 export const BUILD = {
-  versao: "1.3.7",
+  versao: "1.3.8",
   data: "05/11/2026",
   resumo:
-    "Importação por link de volta ao download direto: timeout de 15s com User-Agent de celular, validação por conteúdo real do jw.org em vez de tamanho, espelho do Google removido",
+    "Leitor ajustado ao retorno do import: player assume a proporção real do vídeo (sem faixas pretas de letterbox) e todo o espaçamento do texto acompanha a escala escolhida; figuras passam a preferir a variante de zoom do jw.org",
 };
 
 export const ROTULO_BUILD = `v${BUILD.versao} · ${BUILD.data}`;

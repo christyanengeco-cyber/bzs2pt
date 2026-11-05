@@ -283,7 +283,7 @@
 }
 
 .publication-reader {
-  padding-inline: 24px;
+  padding-inline: 1.5em;
 }
 /* padrão seguro: o banner de seção nunca fica sem cor, mesmo antes do primeiro data-secao */
 .workbook-paragraph {
@@ -293,7 +293,7 @@
   font-size: 1.4em;
   font-weight: 700;
   line-height: 1.25;
-  margin-bottom: 16px;
+  margin-bottom: 1em;
 }
 .workbook-reader .publication-title {
   text-transform: uppercase;
@@ -302,12 +302,12 @@
 .publication-week {
   color: var(--muted-foreground);
   font-size: 0.85em;
-  margin-bottom: 24px;
+  margin-bottom: 1.5em;
 }
 .publication-paragraph {
   position: relative;
-  padding: 0 4px;
-  margin-bottom: 16px;
+  padding: 0 0.25em;
+  margin-bottom: 1em;
 }
 .publication-text {
   font-size: 1.05em;
@@ -323,8 +323,20 @@
   font-size: 0.95em;
 }
 .publication-tools {
-  min-height: 28px;
-  margin-top: 2px;
+  min-height: 1.75em;
+  margin-top: 0.125em;
+}
+/* Os botões e ícones da linha de ferramentas acompanham a escala do texto:
+   sem isso a linha ficava com 28px fixos e, com o texto pequeno, virava um
+   vão enorme entre os parágrafos (era a principal queixa de leitura). */
+.publication-tools button {
+  height: 1.75em;
+  width: 1.75em;
+  padding: 0.25em;
+}
+.publication-tools svg {
+  height: 1em;
+  width: 1em;
 }
 .workbook-paragraph[data-secao="tesouros"] {
   --publication-section: var(--sec-tesouros);
@@ -340,10 +352,10 @@
 .workbook-paragraph[data-estilo="secao"] {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-block: 40px 28px;
-  margin-inline: -24px;
-  padding: 12px 24px;
+  gap: 0.75em;
+  margin-block: 2.5em 1.75em;
+  margin-inline: -1.5em;
+  padding: 0.75em 1.5em;
   background: var(--publication-section);
 }
 .workbook-paragraph[data-estilo="secao"] .publication-text {
@@ -360,8 +372,8 @@
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
+  width: 2.25em;
+  height: 2.25em;
   background: var(--publication-section);
   color: var(--background);
 }
@@ -371,8 +383,8 @@
   display: none;
 }
 .workbook-paragraph[data-estilo="titulo"] {
-  margin-top: 32px;
-  margin-bottom: 4px;
+  margin-top: 2em;
+  margin-bottom: 0.25em;
 }
 .workbook-paragraph[data-estilo="titulo"] .publication-text {
   color: var(--publication-section);
@@ -380,7 +392,7 @@
   font-size: 1em;
 }
 .workbook-paragraph[data-estilo="corpo"] {
-  padding-inline-start: 24px;
+  padding-inline-start: 1.5em;
 }
 .workbook-paragraph[data-estilo="subtitulo"] .publication-text {
   color: var(--reference);
@@ -388,15 +400,15 @@
   font-size: 1em;
 }
 .workbook-paragraph[data-estilo="subtitulo"] {
-  margin-bottom: 20px;
+  margin-bottom: 1.25em;
 }
 .workbook-paragraph[data-estilo="cantico"] {
   display: flex;
-  gap: 10px;
+  gap: 0.625em;
   border-top: 2px solid var(--muted-foreground);
-  padding-top: 20px;
-  margin-top: 20px;
-  margin-bottom: 24px;
+  padding-top: 1.25em;
+  margin-top: 1.25em;
+  margin-bottom: 1.5em;
 }
 .workbook-paragraph[data-estilo="cantico"] .publication-text {
   font-weight: 700;
@@ -409,19 +421,19 @@
 }
 .workbook-paragraph[data-faixa="true"] {
   background: var(--card);
-  margin-inline: -24px;
-  padding-inline: 48px 24px;
+  margin-inline: -1.5em;
+  padding-inline: 3em 1.5em;
   margin-bottom: 0;
-  padding-bottom: 12px;
-  padding-top: 8px;
+  padding-bottom: 0.75em;
+  padding-top: 0.5em;
 }
 .workbook-paragraph[data-faixa="true"][data-estilo="titulo"] {
-  padding-inline-start: 24px;
+  padding-inline-start: 1.5em;
   margin-top: 0;
-  padding-top: 24px;
+  padding-top: 1.5em;
 }
 .publication-image {
-  margin: 20px -24px;
+  margin: 1.25em -1.5em;
 }
 .publication-image img {
   width: 100%;
@@ -438,7 +450,7 @@
   font-weight: 700;
 }
 .watchtower-paragraph[data-estilo="subtitulo"] {
-  margin-top: 32px;
+  margin-top: 2em;
 }
 /* M7 — destaques da Sentinela, no padrão do app: subtítulos em azul de referência,
    quadros informativos como bloco destacado e perguntas de estudo em corpo cheio. */
@@ -449,16 +461,16 @@
   background: color-mix(in srgb, var(--reference) 9%, var(--card));
   border-inline-start: 3px solid var(--reference);
   margin-inline: 0;
-  padding-inline: 16px;
-  padding-top: 8px;
-  padding-bottom: 12px;
+  padding-inline: 1em;
+  padding-top: 0.5em;
+  padding-bottom: 0.75em;
   margin-bottom: 0;
 }
 .watchtower-paragraph[data-faixa="true"] + .publication-paragraph:not([data-faixa="true"]) {
-  margin-top: 16px;
+  margin-top: 1em;
 }
 .watchtower-paragraph[data-faixa="true"][data-estilo="titulo"] {
-  padding-top: 16px;
+  padding-top: 1em;
 }
 .watchtower-paragraph.publication-question .publication-text {
   font-size: 1em;

@@ -110,6 +110,11 @@ function Leitor() {
   const [buscando, setBuscando] = useState<string | null>(null);
   const playerRef = useRef<HTMLDivElement>(null);
   const [telaCheia, setTelaCheia] = useState(false);
+  // Aspecto real do vídeo (videoWidth/videoHeight). Com ele o player assume a
+  // proporção exata da gravação e o vídeo preenche a caixa de ponta a ponta —
+  // sem isso, um 16:9 numa faixa de altura fixa (35dvh) deixava faixas pretas
+  // de letterbox em cima e embaixo (era a queixa das "bordas pretas").
+  const [aspecto, setAspecto] = useState<number | null>(null);
   const [controles, setControles] = useState(true);
   const ctrlTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const cutucar = () => {
@@ -347,11 +352,16 @@ function Leitor() {
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden">
-      {/* PLAYER 35% */}
+      {/* PLAYER — assume a proporção real do vídeo; 35dvh só como estado de carga */}
       <div
         ref={playerRef}
         onMouseMove={cutucar}
-        className={`relative flex shrink-0 flex-col bg-player ${telaCheia ? "h-[100dvh]" : "h-[35dvh]"}`}
+        className={`relative flex shrink-0 flex-col bg-player ${telaCheia ? "h-[100dvh]" : aspecto ? "" : "h-[35dvh]"}`}
+        style={
+          !telaCheia && aspecto
+            ? { aspectRatio: String(aspecto), maxHeight: "45dvh", minHeight: "128px" }
+            : undefined
+        }
       >
         <Link
           to="/"
@@ -399,6 +409,8 @@ function Leitor() {
             onLoadedMetadata={(e) => {
               setDur(e.currentTarget.duration);
               e.currentTarget.playbackRate = vel;
+              const { videoWidth: vw, videoHeight: vh } = e.currentTarget;
+              setAspecto(vw > 0 && vh > 0 ? vw / vh : null);
             }}
             onError={() => setErroVideo(true)}
             onClick={() => (controles && tocando ? setControles(false) : cutucar())}
