@@ -1,8 +1,8 @@
 # Roadmap
 
-- [ ] Mostrar as duas reuniões juntas, com seções distintas e seleção de semana confiável
-- [ ] Aceitar JSON de mídia e reduzir buscas repetidas durante a importação
-- [ ] Recuperar vídeos ausentes de estudos salvos e validar importação real
+- [x] Mostrar as duas reuniões juntas, com seções distintas e seleção de semana confiável
+- [x] Aceitar JSON de mídia e reduzir buscas repetidas durante a importação
+- [x] Recuperar vídeos ausentes de estudos salvos e validar importação real
 
 - [x] Corrigir datas com ordinais e semanas já importadas
 - [x] Recuperar imagens da publicação e preservar uso offline
