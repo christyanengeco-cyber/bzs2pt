@@ -4,14 +4,11 @@ import { sondarMidia } from "./sonda-midia";
 
 const PERMITIDOS = /(^|\.)(jw\.org|jw-cdn\.org|akamaihd\.net)$/i;
 
-/** Canal direto com a cara de um navegador móvel comum. O WAF/CDN (Akamai)
- *  do jw.org costuma levar 8–10s no handshake inicial; o prazo de 15s dá
- *  folga para isso. O corte antigo em 8s abortava a conexão no meio do
- *  handshake — a causa real do "demorou demais pra responder". */
-const AGENTE_MOVEL =
-  "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36";
+/** Calibrado com a apostila e suas referências: o perfil Chrome recebia
+ *  HTTP 202 vazio; JW Library recebia HTML com conteúdo real. Isso não
+ *  garante acesso futuro: continuamos validando a resposta, não o agente. */
 const CABECALHOS: Record<string, string> = {
-  "User-Agent": AGENTE_MOVEL,
+  "User-Agent": "JW Library",
   Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
   "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
 };
@@ -38,6 +35,8 @@ function guardarCache(chave: string, texto: string, url: string) {
  *  descartava como bloqueio (falso positivo, o erro mais caro da assimetria). */
 async function examinar(r: Response, url: string): Promise<string> {
   const texto = await r.text();
+  if (!texto.trim() && (r.status === 202 || r.headers.get("x-amzn-waf-action")))
+    throw new Error(`desafio de segurança do jw.org sem conteúdo (HTTP ${r.status})`);
   if (!texto.trim())
     throw new Error("jw.org devolveu uma resposta vazia (possível bloqueio de segurança)");
   const alvo = new URL(url);
@@ -52,6 +51,8 @@ async function examinar(r: Response, url: string): Promise<string> {
   const titulo = /<title[^>]*>([^<]*)<\/title>/i.exec(texto.slice(0, 4000))?.[1] ?? "";
   if (/não encontrada|not found/i.test(titulo))
     throw new Error("o jw.org respondeu que a página não existe (não é um bloqueio)");
+  if (!CONTEUDO_RE.test(texto) && (r.status === 202 || r.headers.get("x-amzn-waf-action")))
+    throw new Error(`desafio de segurança do jw.org sem conteúdo (HTTP ${r.status})`);
   if (!CONTEUDO_RE.test(texto))
     throw new Error("a página veio sem conteúdo real do jw.org (possível bloqueio ou desafio)");
   return texto;
@@ -76,8 +77,6 @@ async function baixarDe(url: string): Promise<{ texto: string; urlFinal: string 
         : `direto: ${e instanceof Error ? e.message : String(e)}`,
     );
   }
-  if (resposta.status === 202 || resposta.headers.get("x-amzn-waf-action"))
-    throw new Error(`direto: desafio de segurança do jw.org (HTTP ${resposta.status})`);
   if (!resposta.ok) throw new Error(`direto: HTTP ${resposta.status}`);
   try {
     const texto = await examinar(resposta, url);

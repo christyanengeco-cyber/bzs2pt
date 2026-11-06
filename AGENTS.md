@@ -13,6 +13,7 @@
 
 - All study data lives client-side in IndexedDB (src/lib/db.ts); no backend — the app must work offline per user.
 - jw.org import uses the app server fetch first and browser CORS proxies only as fallback, because mobile reliability matters while parsing remains best-effort.
+- Direct jw.org fetch uses the empirically verified JW Library request profile; WAF indicators only reject responses without real content, and browser fallback proxies race within one shared deadline to avoid serial stalls.
 - Study week comparisons use normalized local ISO date ranges while preserving the original display label, because Portuguese labels vary between publications.
 - Backups use a versioned JSON envelope and restore transactionally, because all user data remains local and future formats must stay recoverable.
 - Appearance preferences use a shared browser-safe module and semantic CSS tokens, because the library and reader must preserve the same user-selected accent offline.

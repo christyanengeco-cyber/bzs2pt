@@ -74,23 +74,32 @@ export async function fetchProxy(url: string): Promise<PaginaBaixada> {
   } catch (e) {
     anotar(e instanceof Error ? e.message : String(e));
   }
-  for (const p of PROXIES) {
-    try {
-      const r = await fetch(p(url), { signal: AbortSignal.timeout(10000) });
-      if (!r.ok) {
-        anotar(`HTTP ${r.status} (${new URL(p(url)).hostname})`);
-        continue;
+  // Uma única janela de 10s, não quatro esperas em sequência. O primeiro
+  // conteúdo útil vence; os demais downloads são cancelados imediatamente.
+  const controlador = new AbortController();
+  const prazo = setTimeout(() => controlador.abort(), 10000);
+  try {
+    const pagina = await Promise.any(PROXIES.map(async (p) => {
+      const endereco = p(url);
+      const origem = new URL(endereco).hostname;
+      try {
+        const r = await fetch(endereco, { signal: controlador.signal });
+        if (!r.ok) throw new Error(`HTTP ${r.status} (${origem})`);
+        const texto = await r.text();
+        if (!respostaUtil(texto)) throw new Error(`${origem}: resposta sem conteúdo útil`);
+        return { texto, url };
+      } catch (e) {
+        anotar(e instanceof Error ? e.message : String(e));
+        throw e;
       }
-      const t = await r.text();
-      if (!respostaUtil(t)) {
-        anotar("proxy devolveu uma resposta vazia");
-        continue;
-      }
-      cacheFetch.set(url, { texto: t, url, expira: Date.now() + TEMPO_CACHE });
-      return { texto: t, url };
-    } catch (e) {
-      anotar(e instanceof Error ? e.message : String(e));
-    }
+    }));
+    cacheFetch.set(url, { ...pagina, expira: Date.now() + TEMPO_CACHE });
+    return pagina;
+  } catch {
+    // Preserva o diagnóstico direto e os motivos das contingências abaixo.
+  } finally {
+    clearTimeout(prazo);
+    controlador.abort();
   }
   throw new Error(
     `Não foi possível baixar a página (${erros.slice(0, 3).join("; ")}). Verifique sua conexão e tente de novo.`,

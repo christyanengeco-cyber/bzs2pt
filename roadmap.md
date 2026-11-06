@@ -1,5 +1,8 @@
 # Roadmap
 
+- [x] Corrigir HTTP 202 na importação e validar com publicação real
+- [x] Reduzir espera dos proxies de contingência e testar regressões
+
 - [x] Mostrar as duas reuniões juntas, com seções distintas e seleção de semana confiável
 - [x] Aceitar JSON de mídia e reduzir buscas repetidas durante a importação
 - [x] Recuperar vídeos ausentes de estudos salvos e validar importação real
