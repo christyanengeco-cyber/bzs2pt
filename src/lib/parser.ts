@@ -169,6 +169,8 @@ function findMp4(obj: unknown, out: string[] = []): string[] {
 
 interface Marker {
   label?: string;
+  bibleLabel?: string;
+  verseNumber?: number;
   startTime: number;
   docId?: string | undefined;
 }
@@ -184,11 +186,16 @@ function findMarkers(obj: unknown, out: Marker[] = []): Marker[] {
         time?: unknown;
         mepsParagraphId?: unknown;
         label?: unknown;
+        verseNumber?: unknown;
       }[]) {
         const st = m.startTime ?? m.start ?? m.time;
         if (st != null)
           out.push({
             label: m.mepsParagraphId != null ? String(m.mepsParagraphId) : String(m.label ?? ""),
+            bibleLabel: String(m.label ?? ""),
+            ...(m.verseNumber != null && Number.isInteger(Number(m.verseNumber))
+              ? { verseNumber: Number(m.verseNumber) }
+              : {}),
             startTime: typeof st === "number" ? st : parseTempo(String(st)),
             docId,
           });
@@ -681,7 +688,14 @@ export async function buscarVideoBiblia(href: string): Promise<VideoEncontrado |
   const mp4 = escolherMp4(itens.map((i) => i.url));
   if (!mp4) return undefined;
   const marcas = itens.flatMap((i) => i.markers);
-  const m = marcas.find((x) => x.label === String(verso) || x.label === String(id));
+  const m = marcas.find((x) => {
+    // Marcadores bíblicos e de parágrafo não usam a mesma numeração.
+    if (x.verseNumber != null) return x.verseNumber === verso;
+    const etiqueta = (x.bibleLabel || x.label || "").trim();
+    const referencia = etiqueta.match(/(\d+)\s*:\s*(\d+)\s*$/);
+    if (referencia) return Number(referencia[1]) === cap && Number(referencia[2]) === verso;
+    return etiqueta === String(verso) || etiqueta === String(id);
+  });
   return { titulo: `Capítulo ${cap}`, mp4, inicio: m?.startTime };
 }
 

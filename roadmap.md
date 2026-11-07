@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Corrigir o início do vídeo bíblico no versículo citado e validar o popup
+
 - [x] Corrigir HTTP 202 na importação e validar com publicação real
 - [x] Reduzir espera dos proxies de contingência e testar regressões
 

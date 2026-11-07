@@ -20,3 +20,4 @@
 - Week navigation sorts dated studies chronologically independently of default week selection, because previous weeks belong on the left and upcoming weeks on the right.
 - Publication layout metadata is stored with paragraphs and recovered by matching original text while preserving paragraph IDs, because imported studies must gain images and editorial structure without losing notes or timestamps.
 - Imported image bytes are stored as data URLs in existing paragraph records when fetch succeeds, because offline reading and versioned JSON backups must include illustrations without a separate storage format.
+- Bible citations preserve verse metadata separately from paragraph IDs; the keyed reference player seeks once per citation with readiness retries so later playback is not rewound.

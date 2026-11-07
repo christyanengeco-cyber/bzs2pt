@@ -56,6 +56,7 @@ import {
   type Publicacao,
 } from "@/lib/db";
 import { recuperarVideoSalvo } from "@/lib/recuperacao-video";
+import { ReferenceVideo } from "@/components/ReferenceVideo";
 
 export const Route = createFileRoute("/estudo/$id")({
   head: () => ({
@@ -994,16 +995,7 @@ function PainelReferencia({
         >
           {video && (
             <>
-              <video
-                src={video.mp4}
-                controls
-                playsInline
-                onLoadedMetadata={(e) => {
-                  if (video.inicio) e.currentTarget.currentTime = video.inicio;
-                }}
-                className="w-full rounded-lg bg-black"
-                aria-label={video.titulo}
-              />
+              <ReferenceVideo key={`${href}:${video.mp4}:${video.inicio}`} video={video} />
               {video.titulo && <p className="text-sm font-medium">{video.titulo}</p>}
             </>
           )}
