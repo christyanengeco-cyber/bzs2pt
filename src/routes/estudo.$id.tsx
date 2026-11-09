@@ -317,7 +317,7 @@ function Leitor() {
     } else if (g.moveu) e.preventDefault();
     else {
       e.preventDefault();
-      if (controles && tocando) setControles(false);
+      if (controles) setControles(false);
       else cutucar();
     }
   };
@@ -457,7 +457,7 @@ function Leitor() {
               setAspecto(vw > 0 && vh > 0 ? vw / vh : null);
             }}
             onError={() => setErroVideo(true)}
-            onClick={() => (controles && tocando ? setControles(false) : cutucar())}
+            onClick={() => (controles ? setControles(false) : cutucar())}
             onDoubleClick={alternar}
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
