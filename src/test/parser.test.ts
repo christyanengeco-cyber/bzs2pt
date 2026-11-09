@@ -110,3 +110,13 @@ describe("seleção de faixa", () => {
     ).toEqual([20003005]);
   });
 });
+
+describe("faixa com zero à esquerda", () => {
+  it("track=02 da página pega a faixa 2 da API, não a faixa 1", () => {
+    const itens = [
+      { url: "https://x/mwb_01_r720P.mp4", track: "1", markers: [] },
+      { url: "https://x/mwb_02_r720P.mp4", track: "2", markers: [] },
+    ];
+    expect(selecionarFaixa(itens, undefined, "02")?.mp4).toBe("https://x/mwb_02_r720P.mp4");
+  });
+});

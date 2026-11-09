@@ -223,13 +223,15 @@ function Leitor() {
     let vivo = true;
     // Estudo salvo sem vídeo (bug da API de mídia recusada): reimporta só para
     // recuperar o vídeo e as minutagens, preservando notas e IDs dos parágrafos.
-    if (!pub.video_url && /^https:\/\//.test(pub.url_origem)) {
+    // Também revalida estudos gravados antes da correção da faixa ("02" ≠ 2),
+    // que ficaram com o vídeo da faixa 1 (semana anterior).
+    if ((!pub.video_url || pub.video_versao !== 2) && /^https:\/\//.test(pub.url_origem)) {
       importarUrl(pub.url_origem)
         .then(async (r) => {
           if (!vivo || !r.publicacao.video_url) return;
           const atuais = await listarParagrafos(pub.id);
           const mesclados = mesclarEstrutura(atuais, r.paragrafos, pub.id);
-          const np = { ...pub, video_url: r.publicacao.video_url };
+          const np = { ...pub, video_url: r.publicacao.video_url, video_versao: 2 };
           await salvarPublicacao(np, mesclados);
           if (!vivo) return;
           setPub(np);

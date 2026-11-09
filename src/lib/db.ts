@@ -13,6 +13,8 @@ export interface Publicacao {
   pai_id?: string;
   criado_em: number;
   layout_versao?: number;
+  /** 2 = vídeo escolhido com faixa normalizada ("02" = 2). */
+  video_versao?: number;
 }
 export interface Paragrafo {
   id: string;

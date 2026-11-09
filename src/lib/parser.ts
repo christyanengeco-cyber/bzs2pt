@@ -221,12 +221,18 @@ export function findItensMidia(obj: unknown, out: ItemMidia[] = []): ItemMidia[]
       out.push({
         url: u,
         docid: o.docid != null && String(o.docid) !== "0" ? String(o.docid) : undefined,
-        track: o.track != null ? String(o.track) : undefined,
+        track: o.track != null ? normalizarFaixa(String(o.track)) : undefined,
         markers: o.markers ? findMarkers(o.markers) : [],
       });
     } else Object.values(o).forEach((v) => findItensMidia(v, out));
   }
   return out;
+}
+
+/** "02" e 2 são a mesma faixa: compara pelo número, sem zeros à esquerda. */
+export function normalizarFaixa(t: string): string {
+  const n = Number.parseInt(t, 10);
+  return Number.isFinite(n) ? String(n) : t;
 }
 
 /** docid do próprio documento (classe docId-NNN no body/article ou data-docid). */
@@ -247,7 +253,10 @@ export function selecionarFaixa(
 ): { mp4: string; markers: Marker[] } | undefined {
   let sel: ItemMidia[] = [];
   if (docId) sel = itens.filter((i) => i.docid === docId);
-  if (!sel.length && track) sel = itens.filter((i) => i.track === track);
+  if (!sel.length && track) {
+    const t = normalizarFaixa(track);
+    sel = itens.filter((i) => i.track === t);
+  }
   if (!sel.length) return undefined;
   const mp4 = escolherMp4(sel.map((i) => i.url));
   if (!mp4) return undefined;
@@ -650,6 +659,7 @@ export async function importarHtml(html: string, urlOrigem: string): Promise<Res
       titulo,
       semana,
       layout_versao: 1,
+      video_versao: 2,
       ...(intervalo ? { semana_inicio: intervalo.inicio, semana_fim: intervalo.fim } : {}),
       url_origem: urlOrigem || url,
       video_url,
@@ -684,7 +694,7 @@ export async function buscarVideoBiblia(href: string): Promise<VideoEncontrado |
   const verso = id % 1000;
   const api = `https://b.jw-cdn.org/apis/pub-media/GETPUBMEDIALINKS?output=json&pub=nwt&fileformat=MP4&alllangs=0&langwritten=LSB&txtCMSLang=LSB&booknum=${livro}&track=${cap}`;
   const j: unknown = JSON.parse((await fetchProxy(api)).texto);
-  const itens = findItensMidia(j).filter((i) => !i.track || i.track === String(cap));
+  const itens = findItensMidia(j).filter((i) => !i.track || i.track === normalizarFaixa(String(cap)));
   const mp4 = escolherMp4(itens.map((i) => i.url));
   if (!mp4) return undefined;
   const marcas = itens.flatMap((i) => i.markers);
