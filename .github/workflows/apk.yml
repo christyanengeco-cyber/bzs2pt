@@ -68,14 +68,19 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@v3
-        if: steps.publicado.outputs.existe == 'nao'
-
-      - name: Instalar SDK e build-tools
+      - name: Preparar SDK do Android
         if: steps.publicado.outputs.existe == 'nao'
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" > /dev/null
+          # O runner do ubuntu-latest já traz o SDK em /usr/local/lib/android/sdk.
+          # Não usar android-actions/setup-android: ele roda `sdkmanager tools`,
+          # que deixou de existir no repositório e derruba o job.
+          sdk="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk" >> "$GITHUB_ENV"
+          gerenciador="$sdk/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$gerenciador" ] || gerenciador="$(ls -d "$sdk"/cmdline-tools/*/bin/sdkmanager | tail -1)"
+          yes | "$gerenciador" --licenses > /dev/null 2>&1 || true
+          "$gerenciador" "platforms;android-35" "build-tools;35.0.0" > /dev/null
 
       - uses: gradle/actions/setup-gradle@v4
         if: steps.publicado.outputs.existe == 'nao'
