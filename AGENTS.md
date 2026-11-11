@@ -22,5 +22,4 @@
 - Imported image bytes are stored as data URLs in existing paragraph records when fetch succeeds, because offline reading and versioned JSON backups must include illustrations without a separate storage format.
 - Bible citations preserve verse metadata separately from paragraph IDs; the keyed reference player seeks once per citation with readiness retries so later playback is not rewound.
 - The player's `noscript` fallback from jw.org ("Baixar o vídeo") is dropped during extraction and filtered again in the reader, because studies imported before the fix must not show it either.
-- "Salvar no Drive" uses the client-side OAuth implicit flow (token in the URL fragment, `drive.file` scope) instead of a popup, because Trusted Web Activities never hand a popup's result back to the page.
-- The Drive client ID is a public constant in `src/lib/drive.ts` and its placeholder falls back to the old share/download path, because a missing credential must never break the backup.
+- "Salvar no Drive" must never depend on a Google login: the automatic upload (OAuth) was removed because the test mode requires every account to be pre-registered, so it shares the file or downloads it and links to Drive.

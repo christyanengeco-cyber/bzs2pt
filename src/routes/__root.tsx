@@ -14,7 +14,6 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { aplicarCor, aplicarTema, corValida, type Tema } from "../lib/appearance";
 import { AvisoAtualizacao } from "../components/AvisoAtualizacao";
-import { RetornoDrive } from "../components/RetornoDrive";
 
 function NotFoundComponent() {
   return (
@@ -125,8 +124,6 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
-      {/* Termina o envio do backup depois da volta do Google. */}
-      <RetornoDrive />
       {/* Fica na raiz para o aviso de versão do APK alcançar qualquer tela. */}
       <AvisoAtualizacao />
     </QueryClientProvider>
