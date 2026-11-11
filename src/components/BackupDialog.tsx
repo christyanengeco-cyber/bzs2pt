@@ -76,7 +76,7 @@ export function BackupDialog({
 
   return (
     <Dialog open={aberto} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] w-[calc(100%-2rem)] overflow-y-auto rounded-lg">
+      <DialogContent className="w-[calc(100%-2rem)] rounded-lg">
         <DialogHeader>
           <DialogTitle>Backup e restauração</DialogTitle>
           <DialogDescription>

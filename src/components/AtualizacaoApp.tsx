@@ -59,70 +59,64 @@ export function AtualizacaoApp() {
   // vira o próprio convite para instalar.
   if (instalada === null) {
     return (
-      <fieldset>
-        <legend className="mb-3 text-sm font-semibold">App para Android</legend>
-        <div className="space-y-2">
-          <Button asChild className="w-full">
-            <a href={URL_APK} target="_blank" rel="noreferrer">
-              <Download /> Baixar app para Android
-            </a>
-          </Button>
-          <p className="text-center text-xs text-muted-foreground">
-            O app abre igual a esta tela, guarda os mesmos estudos no aparelho e avisa quando há
-            versão nova.
-          </p>
-          <p className="text-center text-xs text-muted-foreground">
-            No iPhone, use “Adicionar à Tela de Início” no menu do Safari.
-          </p>
-        </div>
-      </fieldset>
+      <div className="space-y-2">
+        <Button asChild className="w-full">
+          <a href={URL_APK} target="_blank" rel="noreferrer">
+            <Download /> Baixar app para Android
+          </a>
+        </Button>
+        <p className="text-center text-xs text-muted-foreground">
+          O app abre igual a esta tela, guarda os mesmos estudos no aparelho e avisa quando há
+          versão nova.
+        </p>
+        <p className="text-center text-xs text-muted-foreground">
+          No iPhone, use “Adicionar à Tela de Início” no menu do Safari.
+        </p>
+      </div>
     );
   }
 
   return (
-    <fieldset>
-      <legend className="mb-3 text-sm font-semibold">Atualizações do app</legend>
-      <div className="space-y-2">
-        {novaVersao ? (
-          <Button asChild className="w-full">
-            <a href={URL_APK} target="_blank" rel="noreferrer">
-              <Download /> Baixar {novaVersao}
-            </a>
-          </Button>
-        ) : (
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={verificar}
-            disabled={estado === "verificando"}
-          >
-            {estado === "verificando" ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-            {estado === "verificando" ? "Verificando…" : "Verificar atualizações"}
-          </Button>
-        )}
+    <div className="space-y-2">
+      {novaVersao ? (
+        <Button asChild className="w-full">
+          <a href={URL_APK} target="_blank" rel="noreferrer">
+            <Download /> Baixar {novaVersao}
+          </a>
+        </Button>
+      ) : (
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={verificar}
+          disabled={estado === "verificando"}
+        >
+          {estado === "verificando" ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+          {estado === "verificando" ? "Verificando…" : "Verificar atualizações"}
+        </Button>
+      )}
 
-        <p className="text-center text-xs text-muted-foreground">
-          {novaVersao
-            ? "Instale por cima da atual. Estudos e anotações continuam."
-            : estado === "atualizado"
-              ? `Já está na versão mais recente (v${publicada ?? BUILD.versao}).`
-              : `Versão instalada: ${instalada ? `v${instalada} (app)` : `v${BUILD.versao} (site)`}`}
-        </p>
+      <p className="text-center text-xs text-muted-foreground">
+        {novaVersao
+          ? "Instale por cima da atual. Estudos e anotações continuam."
+          : estado === "atualizado"
+            ? `Já está na versão mais recente (v${publicada ?? BUILD.versao}).`
+            : `Versão instalada: ${instalada ? `v${instalada} (app)` : `v${BUILD.versao} (site)`}`}
+      </p>
 
-        {/* Backup altamente recomendado: instalar por cima preserva o IndexedDB,
+      {/* Backup altamente recomendado: instalar por cima preserva o IndexedDB,
             mas uma instalação interrompida no meio pode deixar o app sem abrir.
             O arquivo de backup é o único caminho de volta nesse caso. */}
-        {novaVersao && (
-          <div className="space-y-2 rounded-md border border-primary/40 bg-primary/5 p-3">
-            <p className="text-xs font-semibold text-primary">Faça um backup antes de atualizar</p>
-            <p className="text-xs text-muted-foreground">
-              Instalar por cima mantém seus estudos. Ainda assim, se a instalação falhar no meio, só
-              o arquivo de backup recupera.
-            </p>
-            <BotoesBackup pronto={pronto} className="grid gap-2" />
-          </div>
-        )}
-      </div>
-    </fieldset>
+      {novaVersao && (
+        <div className="space-y-2 rounded-md border border-primary/40 bg-primary/5 p-3">
+          <p className="text-xs font-semibold text-primary">Faça um backup antes de atualizar</p>
+          <p className="text-xs text-muted-foreground">
+            Instalar por cima mantém seus estudos. Ainda assim, se a instalação falhar no meio, só o
+            arquivo de backup recupera.
+          </p>
+          <BotoesBackup pronto={pronto} className="grid gap-2" />
+        </div>
+      )}
+    </div>
   );
 }

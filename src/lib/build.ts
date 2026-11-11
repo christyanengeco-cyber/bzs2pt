@@ -7,7 +7,7 @@
  *  `versao` daqui para montar o versionName/versionCode e a startUrl do app
  *  (ver .github/workflows/apk.yml e src/lib/atualizacao.ts). Não duplicar. */
 export const BUILD = {
-  versao: "1.5.0",
+  versao: "1.5.1",
   data: "11/11/2026",
   /** O que mudou nesta versão.
    *
@@ -17,6 +17,8 @@ export const BUILD = {
    *  uma versão nova, escreva os itens aqui e deixe o padrão continuar
    *  escondido (index.tsx: rodapé com `aria-expanded` começando em false). */
   mudancas: [
+    "Configurações agora rola dentro do próprio painel: nada mais fica cortado em tela pequena.",
+    "Cada categoria das Configurações abre e fecha: Aparência, Tamanho do texto, Cor de destaque e App e atualizações.",
     "“Salvar no Drive” agora envia de verdade: o app abre a lista de contas Google do aparelho, você escolhe o Drive e o backup sobe direto.",
     "Se o envio automático falhar, o backup é baixado e aparece o atalho para enviar pelo Drive na mão.",
     "Quem entra pelo site agora vê “Baixar app para Android” em Configurações.",
