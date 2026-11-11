@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extrairUrlCanonical, linkEstudoLivro } from "@/lib/parser";
+import { extrairUrlCanonical, importarHtml, linkEstudoLivro } from "@/lib/parser";
 
 describe("link do estudo de livro (wcg/lff)", () => {
   it("cria o link quando o livro está no mesmo parágrafo do Estudo bíblico", () => {
@@ -118,5 +118,51 @@ describe("faixa com zero à esquerda", () => {
       { url: "https://x/mwb_02_r720P.mp4", track: "2", markers: [] },
     ];
     expect(selecionarFaixa(itens, undefined, "02")?.mp4).toBe("https://x/mwb_02_r720P.mp4");
+  });
+});
+
+describe("estrutura do leitor vinda do jw.org", () => {
+  const html = `<article>
+    <h1 data-pid="1">Para agradar a Jeová, continue treinando sua consciência</h1>
+    <p id="p1" class="contextTtl">4-10 DE JANEIRO DE 2027</p>
+    <p id="p2" class="pubRefs"><a href="/c/36">CÂNTICO 36</a> Proteja o Coração</p>
+    <h2>SUA CONSCIÊNCIA PODE PROTEGER VOCÊ</h2>
+    <p id="p8" data-pid="8"><span class="parNum" data-pnum="2"><strong><sup>2</sup></strong></span> Uma consciência treinada.</p>
+    <p id="p10">(10 min)</p>
+    <p id="p11"><span>PARA MEDITAR:</span> O que eu tenho que fazer?</p>
+    <p id="p12">Saiba mais on-line</p>
+    <p id="p13" class="pubRefs"><strong>OBJETIVO</strong></p>
+    <div class="boxSupplement"><div class="boxTtl" data-pid="30"><h2>COMO VOCÊ RESPONDERIA?</h2></div><p id="p31">Pergunta de revisão?</p></div>
+    <p id="p91"><strong>DESCRIÇÃO DA IMAGEM:</strong> Um irmão brinda.</p>
+  </article>`;
+
+  it("classifica duração, PARA MEDITAR, Saiba mais on-line, OBJETIVO e data", async () => {
+    const { paragrafos } = await importarHtml(html, "https://www.jw.org/pt/artigo/");
+    const porTexto = (t: string) => paragrafos.find((p) => p.texto_portugues.startsWith(t));
+    expect(porTexto("4-10 DE JANEIRO")?.estilo).toBe("dataEstudo");
+    expect(porTexto("CÂNTICO 36")?.estilo).toBe("cantico");
+    expect(porTexto("SUA CONSCIÊNCIA")?.estilo).toBe("subtitulo");
+    expect(porTexto("(10 min)")?.estilo).toBe("duracao");
+    expect(porTexto("PARA MEDITAR")?.estilo).toBe("meditar");
+    expect(porTexto("Saiba mais on-line")?.estilo).toBe("saibaMais");
+    expect(porTexto("OBJETIVO")?.estilo).toBe("objetivo");
+    expect(porTexto("DESCRIÇÃO DA IMAGEM")?.estilo).toBe("descricaoImagem");
+  });
+
+  it("separa o número do parágrafo e agrupa o quadro num bloco só", async () => {
+    const { paragrafos } = await importarHtml(html, "https://www.jw.org/pt/artigo/");
+    const corpo = paragrafos.find((p) => p.texto_portugues.startsWith("Uma consciência"));
+    expect(corpo?.numero_paragrafo).toBe(2);
+    expect(corpo?.texto_portugues).toBe("Uma consciência treinada.");
+    const titulo = paragrafos.find((p) => p.texto_portugues === "COMO VOCÊ RESPONDERIA?");
+    const pergunta = paragrafos.find((p) => p.texto_portugues.startsWith("Pergunta de revisão"));
+    expect(titulo?.estilo).toBe("revisao");
+    expect(titulo?.bloco).toBeDefined();
+    expect(pergunta?.bloco).toBe(titulo?.bloco);
+  });
+
+  it("marca a versão 2 do layout para reimportar os estudos antigos", async () => {
+    const { publicacao } = await importarHtml(html, "https://www.jw.org/pt/artigo/");
+    expect(publicacao.layout_versao).toBe(2);
   });
 });

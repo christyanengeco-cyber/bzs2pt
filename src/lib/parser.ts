@@ -572,6 +572,7 @@ export async function importarHtml(html: string, urlOrigem: string): Promise<Res
     imagem?: string;
     pergunta: boolean;
     pid?: string | undefined;
+    numero_paragrafo?: number | undefined;
     links: { inicio: number; fim: number; href: string }[];
   }[] = [];
   for (const el of nodes) {
@@ -590,7 +591,11 @@ export async function importarHtml(html: string, urlOrigem: string): Promise<Res
         });
       continue;
     }
-    const t = el.textContent?.replace(/\s+/g, " ").trim() ?? "";
+    // O número de estudo vive em `span.parNum` ("9 Pense no seguinte"): separado,
+    // ele vira sobrescrito no leitor em vez de número colado no texto.
+    const pnum = el.querySelector("span.parNum")?.getAttribute("data-pnum");
+    const bruto = el.textContent?.replace(/\s+/g, " ").trim() ?? "";
+    const t = pnum ? bruto.replace(/^\d+\s+/, "") : bruto;
     if (t.length < 3) continue;
     const pergunta =
       el.classList.contains("qu") ||
@@ -612,6 +617,7 @@ export async function importarHtml(html: string, urlOrigem: string): Promise<Res
       texto: t,
       pergunta,
       pid: el.getAttribute("data-pid") ?? undefined,
+      numero_paragrafo: pnum ? Number(pnum) : undefined,
       links,
     });
   }
@@ -640,6 +646,7 @@ export async function importarHtml(html: string, urlOrigem: string): Promise<Res
       texto_portugues: t.texto,
       ...t.estrutura,
       ...(t.imagem_alt ? { imagem_alt: t.imagem_alt } : {}),
+      ...(t.numero_paragrafo != null ? { numero_paragrafo: t.numero_paragrafo } : {}),
       pergunta: t.pergunta,
       oculto: LIXO.test(t.texto),
       timestamp_inicio: ts,
@@ -658,7 +665,7 @@ export async function importarHtml(html: string, urlOrigem: string): Promise<Res
       tipo,
       titulo,
       semana,
-      layout_versao: 1,
+      layout_versao: 2,
       video_versao: 2,
       ...(intervalo ? { semana_inicio: intervalo.inicio, semana_fim: intervalo.fim } : {}),
       url_origem: urlOrigem || url,

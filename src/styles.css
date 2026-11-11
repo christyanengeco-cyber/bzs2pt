@@ -379,7 +379,11 @@
 }
 .workbook-paragraph[data-estilo="secao"] .publication-tools,
 .workbook-paragraph[data-estilo="cantico"] .publication-tools,
-.workbook-paragraph[data-estilo="subtitulo"] .publication-tools {
+.workbook-paragraph[data-estilo="subtitulo"] .publication-tools,
+.workbook-paragraph[data-estilo="duracao"] .publication-tools,
+.workbook-paragraph[data-estilo="dataEstudo"] .publication-tools,
+.watchtower-paragraph[data-estilo="dataEstudo"] .publication-tools,
+.watchtower-paragraph[data-estilo="revisao"] .publication-tools {
   display: none;
 }
 .workbook-paragraph[data-estilo="titulo"] {
@@ -449,34 +453,117 @@
   font-size: 1.15em;
   font-weight: 700;
 }
+/* Subtítulo de seção da Sentinela: centralizado e em caixa alta, como no jw.org.
+   Dentro de um quadro ele continua à esquerda — ali é título de caixa, não seção. */
 .watchtower-paragraph[data-estilo="subtitulo"] {
   margin-top: 2em;
+  text-align: center;
 }
-/* M7 — destaques da Sentinela, no padrão do app: subtítulos em azul de referência,
-   quadros informativos como bloco destacado e perguntas de estudo em corpo cheio. */
 .watchtower-paragraph[data-estilo="subtitulo"] .publication-text {
-  color: var(--reference);
+  color: var(--foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
 }
-.watchtower-paragraph[data-faixa="true"] {
-  background: color-mix(in srgb, var(--reference) 9%, var(--card));
-  border-inline-start: 3px solid var(--reference);
-  margin-inline: 0;
-  padding-inline: 1em;
-  padding-top: 0.5em;
-  padding-bottom: 0.75em;
-  margin-bottom: 0;
+.publication-box .watchtower-paragraph[data-estilo="subtitulo"],
+.publication-box .watchtower-paragraph[data-estilo="titulo"] {
+  margin-top: 0;
+  text-align: left;
 }
-.watchtower-paragraph[data-faixa="true"] + .publication-paragraph:not([data-faixa="true"]) {
-  margin-top: 1em;
-}
-.watchtower-paragraph[data-faixa="true"][data-estilo="titulo"] {
-  padding-top: 1em;
+.publication-box .watchtower-paragraph[data-estilo="subtitulo"] .publication-text {
+  font-size: 1.05em;
+  text-transform: none;
 }
 .watchtower-paragraph.publication-question .publication-text {
   font-size: 1em;
 }
 .publication-reader textarea {
   font-size: 0.95em;
+}
+/* Fidelidade ao jw.org: duração da parte, PARA MEDITAR, Saiba mais on-line,
+   OBJETIVO, data do estudo, quadro e descrição da imagem. */
+.publication-paragraph[data-estilo="duracao"] {
+  margin-top: -0.5em;
+  margin-bottom: 1.25em;
+}
+.publication-paragraph[data-estilo="duracao"] .publication-text {
+  color: var(--muted-foreground);
+  font-size: 0.85em;
+}
+.publication-paragraph[data-estilo="meditar"] .publication-text {
+  color: var(--sec-tesouros);
+  font-weight: 600;
+}
+.publication-paragraph[data-estilo="saibaMais"] .publication-text {
+  color: #7a2e2e;
+  font-weight: 700;
+}
+.dark .publication-paragraph[data-estilo="saibaMais"] .publication-text {
+  color: #e0958f;
+}
+.publication-paragraph[data-estilo="objetivo"] {
+  background: var(--card);
+  border-inline-start: 3px solid var(--section);
+  margin-block: 1.25em;
+  padding: 0.75em 1em;
+}
+.publication-paragraph[data-estilo="objetivo"] .publication-text {
+  font-size: 0.95em;
+}
+.publication-paragraph[data-estilo="dataEstudo"] {
+  background: var(--sec-tesouros);
+  margin-inline: -1.5em;
+  padding: 0.75em 1.5em;
+}
+.publication-paragraph[data-estilo="dataEstudo"] .publication-text {
+  color: var(--background);
+  font-size: 0.9em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.publication-paragraph[data-estilo="revisao"] {
+  margin-bottom: 0.25em;
+}
+.publication-paragraph[data-estilo="revisao"] .publication-text {
+  font-size: 1.05em;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.publication-paragraph[data-estilo="descricaoImagem"] {
+  margin-top: 1.5em;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75em;
+}
+.publication-paragraph[data-estilo="descricaoImagem"] .publication-text {
+  color: var(--muted-foreground);
+  font-size: 0.8em;
+}
+/* Número de estudo: sobrescrito, fora do texto selecionável para não deslocar
+   os offsets das marcações. */
+.publication-parnum {
+  margin-inline-end: 0.25em;
+  color: var(--muted-foreground);
+  font-size: 0.7em;
+  vertical-align: super;
+  user-select: none;
+}
+/* Quadro da Sentinela: fundo neutro e borda superior grossa, como o
+   `.boxSupplement` do jw.org. O acento do usuário não entra aqui. */
+.publication-box {
+  margin-block: 1.75em;
+  padding: 1em 1.25em;
+  background: #f7f7f5;
+  border-top: 10px solid #2c6f78;
+}
+.dark .publication-box {
+  background: #262625;
+  border-top-color: #6fa8b8;
+}
+.publication-box[data-revisao="true"] {
+  border-top-width: 3px;
+}
+.publication-box > .publication-paragraph:last-child {
+  margin-bottom: 0;
 }
 
 @layer base {

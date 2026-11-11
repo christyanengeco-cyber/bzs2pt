@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   Clock,
@@ -180,6 +180,18 @@ function Leitor() {
       return secao;
     });
   })();
+  // Agrupa parágrafos consecutivos do mesmo quadro (`.boxSupplement`/`.blockTeach`):
+  // o leitor desenha uma caixa só em volta deles, como no JW Library, em vez de
+  // repetir fundo e borda em cada parágrafo.
+  const grupos = (() => {
+    const out: { bloco?: string | undefined; itens: { p: Paragrafo; i: number }[] }[] = [];
+    visiveis.forEach((p, i) => {
+      const ultimo = out[out.length - 1];
+      if (p.bloco && ultimo?.bloco === p.bloco) ultimo.itens.push({ p, i });
+      else out.push({ bloco: p.bloco, itens: [{ p, i }] });
+    });
+    return out;
+  })();
   async function definirOculto(p: Paragrafo, oculto: boolean) {
     const np = { ...p, oculto };
     await atualizarParagrafo(np);
@@ -194,12 +206,12 @@ function Leitor() {
         setPub(p ?? null);
         setParas(ps);
         setNotas(ns);
-        if (!p || p.layout_versao === 1 || !navigator.onLine) return;
+        if (!p || p.layout_versao === 2 || !navigator.onLine) return;
         try {
           const atualizado = await importarUrl(p.url_origem);
           if (!vivo) return;
           const mesclados = mesclarEstrutura(ps, atualizado.paragrafos, id);
-          const np = { ...p, layout_versao: 1 };
+          const np = { ...p, layout_versao: 2 };
           await salvarPublicacao(np, mesclados);
           setPub(np);
           setParas(mesclados);
@@ -231,7 +243,12 @@ function Leitor() {
           if (!vivo || !r.publicacao.video_url) return;
           const atuais = await listarParagrafos(pub.id);
           const mesclados = mesclarEstrutura(atuais, r.paragrafos, pub.id);
-          const np = { ...pub, video_url: r.publicacao.video_url, video_versao: 2 };
+          const np = {
+            ...pub,
+            video_url: r.publicacao.video_url,
+            video_versao: 2,
+            layout_versao: 2,
+          };
           await salvarPublicacao(np, mesclados);
           if (!vivo) return;
           setPub(np);
@@ -346,8 +363,12 @@ function Leitor() {
     if (!s || s.isCollapsed || !el.contains(s.anchorNode)) return;
     if (!s.rangeCount) return;
     const r = s.getRangeAt(0);
+    // O número do parágrafo fica fora do trecho selecionável: os offsets das
+    // marcações são relativos ao texto puro, então a conta usa o span de texto.
+    const alvo = el.querySelector<HTMLElement>("[data-texto]") ?? el;
+    if (!alvo.contains(r.startContainer) || !alvo.contains(r.endContainer)) return;
     const pre = document.createRange();
-    pre.selectNodeContents(el);
+    pre.selectNodeContents(alvo);
     pre.setEnd(r.startContainer, r.startOffset);
     const inicio = pre.toString().length;
     const trecho = r.toString();
@@ -584,62 +605,78 @@ function Leitor() {
               oculta o trecho. Toque no lápis do topo para sair.
             </p>
           )}
-          {visiveis.map((p, i) => (
-            <ParagrafoView
-              secao={pub.tipo === "apostila" ? secoes[i] : undefined}
-              apostila={pub.tipo === "apostila"}
-              anterior={pub.tipo === "apostila" ? (visiveis[i - 1]?.texto_portugues ?? "") : ""}
-              key={p.id}
-              p={p}
-              ativo={ativo === p.id}
-              acompanhando={tocando}
-              notas={notas.filter((n) => n.paragrafo_id === p.id)}
-              temVideo={!!pub.video_url}
-              modoTempo={modoTempo}
-              onRef={(href, texto) => {
-                if (!href.startsWith("livro:")) return setRef({ href, texto });
-                if (buscando) return;
-                const [, code, n] = href.split(":");
-                setBuscando("Buscando lição em Libras…");
-                (async () => {
-                  const u = (await resolverEstudoLivro(code ?? "", Number(n))).split("#")[0] ?? "";
-                  const ex = (await listarPublicacoes()).find((x) => x.url_origem === u);
-                  if (ex) return navLivro({ to: "/estudo/$id", params: { id: ex.id } });
-                  const r = await importarUrl(u);
-                  r.publicacao.tipo = "referencia";
-                  r.publicacao.pai_id = id;
-                  r.publicacao.semana = pub.semana;
-                  if (pub.semana_inicio) r.publicacao.semana_inicio = pub.semana_inicio;
-                  if (pub.semana_fim) r.publicacao.semana_fim = pub.semana_fim;
-                  await salvarPublicacao(r.publicacao, r.paragrafos);
-                  navLivro({ to: "/estudo/$id", params: { id: r.publicacao.id } });
-                })()
-                  .catch((e) => alert(e instanceof Error ? e.message : "Falha ao buscar a lição"))
-                  .finally(() => setBuscando(null));
-              }}
-              onTap={() => {
-                if (
-                  sel ||
-                  Date.now() - ultimaSelecao.current < 600 ||
-                  window.getSelection()?.toString()
-                )
-                  return;
-                setAtivo(p.id);
-                if (pub.video_url) {
-                  trava.current = p.timestamp_inicio;
-                  seekTo(p.timestamp_inicio);
+          {grupos.map((grupo, gi) => {
+            const itens = grupo.itens.map(({ p, i }) => (
+              <ParagrafoView
+                secao={pub.tipo === "apostila" ? secoes[i] : undefined}
+                apostila={pub.tipo === "apostila"}
+                anterior={pub.tipo === "apostila" ? (visiveis[i - 1]?.texto_portugues ?? "") : ""}
+                key={p.id}
+                p={p}
+                ativo={ativo === p.id}
+                acompanhando={tocando}
+                notas={notas.filter((n) => n.paragrafo_id === p.id)}
+                temVideo={!!pub.video_url}
+                modoTempo={modoTempo}
+                onRef={(href, texto) => {
+                  if (!href.startsWith("livro:")) return setRef({ href, texto });
+                  if (buscando) return;
+                  const [, code, n] = href.split(":");
+                  setBuscando("Buscando lição em Libras…");
+                  (async () => {
+                    const u =
+                      (await resolverEstudoLivro(code ?? "", Number(n))).split("#")[0] ?? "";
+                    const ex = (await listarPublicacoes()).find((x) => x.url_origem === u);
+                    if (ex) return navLivro({ to: "/estudo/$id", params: { id: ex.id } });
+                    const r = await importarUrl(u);
+                    r.publicacao.tipo = "referencia";
+                    r.publicacao.pai_id = id;
+                    r.publicacao.semana = pub.semana;
+                    if (pub.semana_inicio) r.publicacao.semana_inicio = pub.semana_inicio;
+                    if (pub.semana_fim) r.publicacao.semana_fim = pub.semana_fim;
+                    await salvarPublicacao(r.publicacao, r.paragrafos);
+                    navLivro({ to: "/estudo/$id", params: { id: r.publicacao.id } });
+                  })()
+                    .catch((e) => alert(e instanceof Error ? e.message : "Falha ao buscar a lição"))
+                    .finally(() => setBuscando(null));
+                }}
+                onTap={() => {
+                  if (
+                    sel ||
+                    Date.now() - ultimaSelecao.current < 600 ||
+                    window.getSelection()?.toString()
+                  )
+                    return;
+                  setAtivo(p.id);
+                  if (pub.video_url) {
+                    trava.current = p.timestamp_inicio;
+                    seekTo(p.timestamp_inicio);
+                  }
+                }}
+                onOcultar={() => definirOculto(p, true)}
+                onMarca={(m) => {
+                  setSel(null);
+                  setEditMarca(m);
+                }}
+                onSelect={(el) => onSelect(p.id, el)}
+                onSync={() => sincronizar(p)}
+                onNotas={setNotas}
+              />
+            ));
+            return grupo.bloco ? (
+              <div
+                key={grupo.bloco}
+                className="publication-box"
+                data-revisao={
+                  grupo.itens.some(({ p }) => p.estilo === "revisao") ? "true" : undefined
                 }
-              }}
-              onOcultar={() => definirOculto(p, true)}
-              onMarca={(m) => {
-                setSel(null);
-                setEditMarca(m);
-              }}
-              onSelect={(el) => onSelect(p.id, el)}
-              onSync={() => sincronizar(p)}
-              onNotas={setNotas}
-            />
-          ))}
+              >
+                {itens}
+              </div>
+            ) : (
+              <Fragment key={`grupo-${gi}`}>{itens}</Fragment>
+            );
+          })}
         </div>
       </div>
 
@@ -1171,16 +1208,19 @@ function ParagrafoView({
         livro,
       ].sort((a, b) => a.inicio - b.inicio)
     : p.links;
-  const secaoTitulo = identificarSecao(p.texto_portugues);
+  const secaoDetectada = identificarSecao(p.texto_portugues);
   const estilo =
     p.estilo ??
-    (secaoTitulo
+    (secaoDetectada
       ? "secao"
       : /^\d+\.\s/.test(p.texto_portugues) && apostila
         ? "titulo"
         : /Cântico|Comentários finais/i.test(p.texto_portugues) && apostila
           ? "cantico"
           : "corpo");
+  // Só o banner de seção ganha ícone: identificarSecao em todo parágrafo custava
+  // três regex por trecho e marcava texto comum que citasse o nome da seção.
+  const secaoTitulo = estilo === "secao" ? secaoDetectada : undefined;
   if (estilo === "semana") return null;
   if (p.imagem)
     return (
@@ -1192,7 +1232,11 @@ function ParagrafoView({
   // M6 — cabeçalhos anunciados no rotor do leitor de tela sem trocar a tag
   // (preserva seleção, marcação e sincronismo com o vídeo).
   const eCabecalho =
-    estilo === "secao" || estilo === "subtitulo" || estilo === "titulo" || estilo === "cantico";
+    estilo === "secao" ||
+    estilo === "subtitulo" ||
+    estilo === "titulo" ||
+    estilo === "cantico" ||
+    estilo === "revisao";
   const nivelCabecalho = estilo === "secao" ? 2 : 3;
 
   return (
@@ -1220,7 +1264,12 @@ function ParagrafoView({
         onMouseUp={() => ref.current && onSelect(ref.current)}
         className="publication-text cursor-pointer select-text"
       >
-        {renderMarcado(p.texto_portugues, notas, onMarca, links, onRef)}
+        {p.numero_paragrafo != null && (
+          <sup className="publication-parnum" aria-hidden="true">
+            {p.numero_paragrafo}
+          </sup>
+        )}
+        <span data-texto>{renderMarcado(p.texto_portugues, notas, onMarca, links, onRef)}</span>
       </p>
       <div className="publication-tools flex items-center gap-1 text-muted-foreground">
         {temVideo && modoTempo && (

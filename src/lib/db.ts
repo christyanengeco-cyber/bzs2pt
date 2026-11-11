@@ -27,10 +27,28 @@ export interface Paragrafo {
   imagem?: string;
   imagem_alt?: string;
   estilo?:
-    "semana" | "secao" | "subtitulo" | "titulo" | "cantico" | "corpo" | "legenda" | undefined;
+    | "semana"
+    | "secao"
+    | "subtitulo"
+    | "titulo"
+    | "cantico"
+    | "corpo"
+    | "legenda"
+    | "duracao"
+    | "meditar"
+    | "saibaMais"
+    | "objetivo"
+    | "dataEstudo"
+    | "revisao"
+    | "descricaoImagem"
+    | undefined;
   faixa?: boolean | undefined;
   resposta?: boolean | undefined;
   meps_id?: string | undefined;
+  /** Número de estudo do parágrafo (`span.parNum`), exibido como sobrescrito. */
+  numero_paragrafo?: number | undefined;
+  /** Agrupa parágrafos que pertencem ao mesmo quadro (`.boxSupplement`/`.blockTeach`). */
+  bloco?: string | undefined;
   oculto?: boolean;
   links?: { inicio: number; fim: number; href: string }[];
 }

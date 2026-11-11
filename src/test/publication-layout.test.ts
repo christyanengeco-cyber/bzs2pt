@@ -51,4 +51,28 @@ describe("estrutura das publicações", () => {
     });
     expect(resultado[0]?.imagem).toBe("data:image/png;base64,abc");
   });
+
+  it("casa o parágrafo antigo (número colado no texto) com o novo sem o número", () => {
+    const antigo: Paragrafo = {
+      id: "velho",
+      publicacao_id: "pub",
+      numero_ordem: 0,
+      texto_portugues: "9 Pense no seguinte.",
+      timestamp_inicio: 12,
+    };
+    const novo: Paragrafo = {
+      ...antigo,
+      id: "novo",
+      texto_portugues: "Pense no seguinte.",
+      numero_paragrafo: 9,
+      timestamp_inicio: 0,
+    };
+    const resultado = mesclarEstrutura([antigo], [novo], "pub");
+    expect(resultado).toHaveLength(1);
+    expect(resultado[0]).toMatchObject({
+      id: "velho",
+      timestamp_inicio: 12,
+      numero_paragrafo: 9,
+    });
+  });
 });
