@@ -1,4 +1,4 @@
-const CACHE = "estudo-em-libras-v1";
+const CACHE = "estudo-em-libras-v2";
 const BASE = ["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -26,6 +26,8 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  // APK de atualização é binário grande: nunca entra no cache.
+  if (url.pathname.startsWith("/download/") || url.pathname.endsWith(".apk")) return;
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)

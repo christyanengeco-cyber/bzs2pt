@@ -3,9 +3,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   CalendarDays,
-  Users,
   Check,
+  ChevronDown,
   Clock3,
+  Users,
   DatabaseBackup,
   FileUp,
   Link2,
@@ -158,6 +159,8 @@ function Biblioteca() {
   const [aberto, setAberto] = useState(false);
   const [backup, setBackup] = useState(false);
   const [tutorial, setTutorial] = useState(false);
+  // Rodapé: o que mudou começa fechado de propósito. Ver comentário em lib/build.ts.
+  const [versaoAberta, setVersaoAberta] = useState(false);
   const semanaAtiva = useRef<HTMLButtonElement>(null);
   const [selecionadas, setSelecionadas] = useState<Partial<Record<Aba, string>>>({});
   const recarregar = () => listarPublicacoes().then(setPubs);
@@ -395,9 +398,36 @@ function Biblioteca() {
           <Plus /> Importar estudo
         </Button>
       </div>
-      <footer className="px-4 pt-6 text-center text-xs text-muted-foreground">
-        <p>Versão do app: {ROTULO_BUILD}</p>
-        {BUILD.resumo && <p className="mx-auto mt-0.5 max-w-sm">{BUILD.resumo}</p>}
+      <footer className="px-4 pt-6 pb-2 text-center text-xs text-muted-foreground">
+        {/* Rodapé limpo: só a versão. O changelog (BUILD.mudancas) fica
+            escondido atrás do toque, porque lista longa embaixo da versão
+            polui a tela inicial. Não abrir por padrão. */}
+        <button
+          type="button"
+          onClick={() => setVersaoAberta((v) => !v)}
+          aria-expanded={versaoAberta}
+          aria-controls="mudancas-da-versao"
+          className="inline-flex items-center gap-1 rounded px-2 py-1 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          Versão do app: {ROTULO_BUILD}
+          <ChevronDown
+            className={`h-3.5 w-3.5 transition-transform ${versaoAberta ? "rotate-180" : ""}`}
+            aria-hidden="true"
+          />
+        </button>
+        {versaoAberta && BUILD.mudancas.length > 0 && (
+          <ul
+            id="mudancas-da-versao"
+            className="mx-auto mt-2 max-w-sm space-y-1.5 text-left leading-snug"
+          >
+            {BUILD.mudancas.map((mudanca) => (
+              <li key={mudanca} className="flex gap-1.5">
+                <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+                <span>{mudanca}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </footer>
       <BackupDialog aberto={backup} onOpenChange={setBackup} onRestored={recarregar} />
       <TutorialDialog aberto={tutorial} onOpenChange={setTutorial} />

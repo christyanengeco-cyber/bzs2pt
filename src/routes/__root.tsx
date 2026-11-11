@@ -13,6 +13,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { aplicarCor, aplicarTema, corValida, type Tema } from "../lib/appearance";
+import { AvisoAtualizacao } from "../components/AvisoAtualizacao";
 
 function NotFoundComponent() {
   return (
@@ -123,6 +124,8 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
+      {/* Fica na raiz para o aviso de versão do APK alcançar qualquer tela. */}
+      <AvisoAtualizacao />
     </QueryClientProvider>
   );
 }

@@ -1,0 +1,166 @@
+# Gera o APK assinado, publica no GitHub Releases e mantém o assetlinks.json.
+#
+# Dispara quando src/lib/build.ts muda — ou seja, quando a versão do app sobe.
+# O `versao` de build.ts é a fonte única: vira versionName e versionCode do APK e
+# também a startUrl (?v=), que o app usa para saber o que está instalado.
+#
+# Segredos obrigatórios (ver docs/APK.md):
+#   ANDROID_KEYSTORE_BASE64    keystore .jks em base64
+#   ANDROID_KEYSTORE_PASSWORD  senha do keystore
+#   ANDROID_KEY_ALIAS          alias da chave
+#   ANDROID_KEY_PASSWORD       senha da chave
+name: APK Android
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/lib/build.ts"
+      - "android/**"
+      - ".github/workflows/apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-android
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ler versão de src/lib/build.ts
+        id: versao
+        run: |
+          nome=$(grep -oP 'versao:\s*"\K[0-9]+\.[0-9]+\.[0-9]+' src/lib/build.ts | head -1)
+          if [ -z "$nome" ]; then
+            echo "Versão não encontrada em src/lib/build.ts" >&2
+            exit 1
+          fi
+          codigo=$(python3 -c "a,b,c='$nome'.split('.'); print(int(a)*10000+int(b)*100+int(c))")
+          echo "nome=$nome" >> "$GITHUB_OUTPUT"
+          echo "codigo=$codigo" >> "$GITHUB_OUTPUT"
+          echo "Versão detectada: $nome (versionCode $codigo)"
+
+      # Publicar duas vezes a mesma versão quebraria a regra de versionCode
+      # crescente. Se o release já existe, não há nada a fazer.
+      - name: Já publicado?
+        id: publicado
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v${{ steps.versao.outputs.nome }}" >/dev/null 2>&1; then
+            echo "existe=sim" >> "$GITHUB_OUTPUT"
+            echo "Release v${{ steps.versao.outputs.nome }} já existe. Nada a fazer."
+          else
+            echo "existe=nao" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-java@v4
+        if: steps.publicado.outputs.existe == 'nao'
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+        if: steps.publicado.outputs.existe == 'nao'
+
+      - name: Instalar SDK e build-tools
+        if: steps.publicado.outputs.existe == 'nao'
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" > /dev/null
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.publicado.outputs.existe == 'nao'
+        with:
+          gradle-version: "8.7"
+
+      - name: Restaurar keystore
+        if: steps.publicado.outputs.existe == 'nao'
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "Segredo ANDROID_KEYSTORE_BASE64 ausente. Ver docs/APK.md." >&2
+            exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+
+      - name: Gerar APK assinado
+        if: steps.publicado.outputs.existe == 'nao'
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/release.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          gradle assembleRelease --no-daemon \
+            -PappVersionName=${{ steps.versao.outputs.nome }} \
+            -PappVersionCode=${{ steps.versao.outputs.codigo }}
+
+      - name: Conferir digital do certificado
+        id: digital
+        if: steps.publicado.outputs.existe == 'nao'
+        run: |
+          # Lida do próprio APK com apksigner: é exatamente a digital que o
+          # Android confere no assetlinks. Não usar keytool aqui — o keytool do
+          # JDK 8 imprime "SHA256withRSA" no lugar do hash (bug visto na máquina
+          # de desenvolvimento), o que gravaria assetlinks inválido.
+          apk="android/app/build/outputs/apk/release/app-release.apk"
+          signer="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          [ -x "$signer" ] || signer=$(command -v apksigner)
+          sha=$("$signer" verify --print-certs "$apk" \
+                | awk -F': ' '/SHA-256 digest/{print $2; exit}' \
+                | tr '[:lower:]' '[:upper:]')
+          if [ -z "$sha" ]; then
+            echo "Não foi possível ler a digital SHA-256 do APK." >&2
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Digital do APK: $sha"
+
+      - name: Atualizar assetlinks.json
+        if: steps.publicado.outputs.existe == 'nao'
+        run: node scripts/assetlinks.mjs "${{ steps.digital.outputs.sha }}"
+
+      - name: Publicar release com o APK
+        if: steps.publicado.outputs.existe == 'nao'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          versao="${{ steps.versao.outputs.nome }}"
+          apk="android/app/build/outputs/apk/release/app-release.apk"
+          if [ ! -f "$apk" ]; then
+            echo "APK não foi gerado em $apk" >&2
+            exit 1
+          fi
+          # Nome fixo de propósito: o link de download no app aponta sempre para
+          # .../releases/latest/download/estudo-em-libras.apk (src/lib/atualizacao.ts).
+          cp "$apk" estudo-em-libras.apk
+          node scripts/notas-release.mjs > notas.md
+          gh release create "v$versao" estudo-em-libras.apk \
+            --title "Estudo em Libras v$versao" \
+            --notes-file notas.md
+
+      # O arquivo precisa ficar no domínio do site. Commit aqui faz o Lovable
+      # republicar já com o assetlinks correto.
+      - name: Commitar assetlinks.json
+        if: steps.publicado.outputs.existe == 'nao'
+        run: |
+          if git diff --quiet -- public/.well-known/assetlinks.json; then
+            echo "assetlinks.json já estava correto."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/.well-known/assetlinks.json
+          git commit -m "Atualiza assetlinks.json com a digital do APK v${{ steps.versao.outputs.nome }}"
+          git push

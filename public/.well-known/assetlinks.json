@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "br.com.estudoemlibras.app",
+      "sha256_cert_fingerprints": [
+        "A0:B6:E5:B1:51:92:ED:2B:AB:9D:BE:18:97:A8:F9:E5:AE:8D:B7:7A:20:A7:88:7A:2A:F7:1C:9A:41:4A:AD:D6"
+      ]
+    }
+  }
+]

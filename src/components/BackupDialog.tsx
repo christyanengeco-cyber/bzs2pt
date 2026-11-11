@@ -1,6 +1,7 @@
-import { useRef, useState } from "react";
-import { Download, FileUp, ShieldCheck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { FileUp, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BotoesBackup } from "@/components/BotoesBackup";
 import {
   Dialog,
   DialogContent,
@@ -8,9 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { listarTodosDados, restaurarDados } from "@/lib/db";
+import { restaurarDados } from "@/lib/db";
 import { validarBackup, type BackupEstudos } from "@/lib/backup";
 import { ROTULO_BUILD } from "@/lib/build";
+import { montarBackup, podeCompartilhar, type BackupPronto } from "@/lib/salvar-backup";
 
 export function BackupDialog({
   aberto,
@@ -23,26 +25,23 @@ export function BackupDialog({
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [backup, setBackup] = useState<BackupEstudos | null>(null);
+  const [pronto, setPronto] = useState<BackupPronto | null>(null);
   const [erro, setErro] = useState("");
   const [ocupado, setOcupado] = useState(false);
 
-  async function exportar() {
-    const dados = await listarTodosDados();
-    const conteudo: BackupEstudos = {
-      app: "estudo-em-libras",
-      versao: 1,
-      exportado_em: new Date().toISOString(),
-      ...dados,
+  // O arquivo é montado na abertura, não no clique: a Web Share API exige gesto
+  // do usuário e qualquer espera antes de compartilhar invalida o gesto.
+  useEffect(() => {
+    if (!aberto) return;
+    let vivo = true;
+    setPronto(null);
+    montarBackup()
+      .then((arquivo) => vivo && setPronto(arquivo))
+      .catch(() => vivo && setErro("Não foi possível montar o backup agora."));
+    return () => {
+      vivo = false;
     };
-    const url = URL.createObjectURL(
-      new Blob([JSON.stringify(conteudo)], { type: "application/json" }),
-    );
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `estudo-em-libras-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
+  }, [aberto]);
 
   async function lerArquivo(file?: File) {
     if (!file) return;
@@ -81,28 +80,34 @@ export function BackupDialog({
         <DialogHeader>
           <DialogTitle>Backup e restauração</DialogTitle>
           <DialogDescription>
-            Guarde estudos, marcações, notas, tempos e itens ocultos em um arquivo no seu aparelho.
+            Guarde estudos, marcações, notas, tempos e itens ocultos em um arquivo seu.
           </DialogDescription>
         </DialogHeader>
         <div className="flex items-start gap-3 border-y py-4 text-sm text-muted-foreground">
           <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-          <p>O arquivo é criado no seu aparelho. Nenhum conteúdo é enviado para uma conta.</p>
+          <p>
+            O arquivo é criado no seu aparelho. Nenhum conteúdo é enviado para uma conta do app.
+          </p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Button onClick={exportar}>
-            <Download /> Exportar backup
-          </Button>
-          <Button variant="outline" onClick={() => input.current?.click()}>
-            <FileUp /> Escolher arquivo
-          </Button>
-          <input
-            ref={input}
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            onChange={(e) => lerArquivo(e.target.files?.[0])}
-          />
+        <div className="space-y-2">
+          <BotoesBackup pronto={pronto} />
+          {pronto && podeCompartilhar(pronto) && (
+            <p className="text-center text-xs text-muted-foreground">
+              “Salvar no Drive” abre a lista de apps do aparelho: escolha o Drive para guardar fora
+              dele.
+            </p>
+          )}
         </div>
+        <Button variant="outline" className="w-full" onClick={() => input.current?.click()}>
+          <FileUp /> Restaurar de um arquivo
+        </Button>
+        <input
+          ref={input}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(e) => lerArquivo(e.target.files?.[0])}
+        />
         {erro && (
           <p role="alert" className="text-sm text-destructive">
             {erro}

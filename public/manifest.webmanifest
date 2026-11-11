@@ -1,13 +1,20 @@
 {
+  "id": "/",
   "name": "Estudo em Libras",
   "short_name": "Libras Estudo",
+  "description": "Importe matérias do jw.org em Libras e estude com vídeo sincronizado ao texto, offline.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#000000",
   "theme_color": "#000000",
   "lang": "pt-BR",
+  "dir": "ltr",
+  "categories": ["education", "books"],
+  "prefer_related_applications": false,
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }

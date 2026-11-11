@@ -1,6 +1,7 @@
 import { Check, HelpCircle, Monitor, Moon, Settings, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { AtualizacaoApp } from "@/components/AtualizacaoApp";
 import { TutorialDialog } from "@/components/TutorialDialog";
 import {
   Dialog,
@@ -120,6 +121,7 @@ export function ThemeToggle() {
               ))}
             </div>
           </fieldset>
+          <AtualizacaoApp />
           <Button variant="outline" className="w-full" onClick={() => setTutorial(true)}>
             <HelpCircle /> Tutorial
           </Button>

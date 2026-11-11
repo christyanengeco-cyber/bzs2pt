@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Estudo em Libras</string>
+
+    <!-- Delegação sem digital: o Chrome confirma pelo arquivo publicado em
+         /.well-known/assetlinks.json. Versão antiga do formato, mantida porque a
+         androidbrowserhelper ainda a consulta como atalho. -->
+    <string name="asset_statements" translatable="false">
+[{
+  \"relation\": [\"delegate_permission/common.handle_all_urls\"],
+  \"target\": {
+    \"namespace\": \"web\",
+    \"site\": \"https://bzs2pt.lovable.app\"
+  }
+}]
+    </string>
+</resources>
