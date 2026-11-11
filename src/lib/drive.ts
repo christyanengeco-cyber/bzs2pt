@@ -6,7 +6,8 @@ import type { BackupPronto } from "@/lib/salvar-backup";
  *  para identificar este app no fluxo de autorização. Enquanto estiver com o
  *  valor de exemplo, o app cai no caminho antigo (compartilhar ou baixar) em vez
  *  de abrir uma tela quebrada. Ver docs/DRIVE.md para criar o seu. */
-export const CLIENTE_DRIVE = "COLE_AQUI.apps.googleusercontent.com";
+export const CLIENTE_DRIVE =
+  "23419289311-vthgdboukfpus2lfboh6jv1esnnfh519.apps.googleusercontent.com";
 
 /** Valor de exemplo: enquanto estiver aqui, o Drive automático fica desligado. */
 const CLIENTE_DE_EXEMPLO = "COLE_AQUI.apps.googleusercontent.com";

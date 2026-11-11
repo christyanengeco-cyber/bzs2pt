@@ -7,7 +7,7 @@
  *  `versao` daqui para montar o versionName/versionCode e a startUrl do app
  *  (ver .github/workflows/apk.yml e src/lib/atualizacao.ts). Não duplicar. */
 export const BUILD = {
-  versao: "1.4.1",
+  versao: "1.5.0",
   data: "11/11/2026",
   /** O que mudou nesta versão.
    *
@@ -17,7 +17,8 @@ export const BUILD = {
    *  uma versão nova, escreva os itens aqui e deixe o padrão continuar
    *  escondido (index.tsx: rodapé com `aria-expanded` começando em false). */
   mudancas: [
-    "“Salvar no Drive” passou a funcionar de verdade: quando o Android não abre a folha de compartilhamento, o backup é baixado e aparece o atalho para enviar pelo Drive.",
+    "“Salvar no Drive” agora envia de verdade: o app abre a lista de contas Google do aparelho, você escolhe o Drive e o backup sobe direto.",
+    "Se o envio automático falhar, o backup é baixado e aparece o atalho para enviar pelo Drive na mão.",
     "Quem entra pelo site agora vê “Baixar app para Android” em Configurações.",
     "Agora existe app Android (APK): dá para instalar no celular e usar igual ao PWA.",
     "A biblioteca avisa sozinha quando sai versão nova, com botão para baixar e instalar por cima.",
