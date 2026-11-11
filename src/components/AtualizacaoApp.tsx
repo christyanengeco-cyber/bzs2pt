@@ -18,11 +18,13 @@ type Estado = "parado" | "verificando" | "atualizado" | "disponivel" | "erro";
  *  são os mesmos em todo build. Nunca sugerir desinstalar: apaga o IndexedDB. */
 export function AtualizacaoApp() {
   const [instalada, setInstalada] = useState<string | null>(null);
+  const [sondou, setSondou] = useState(false);
   const [publicada, setPublicada] = useState<string | null>(null);
   const [estado, setEstado] = useState<Estado>("parado");
 
   useEffect(() => {
     setInstalada(versaoApkInstalada());
+    setSondou(true);
   }, []);
 
   const verificar = async () => {
@@ -48,6 +50,34 @@ export function AtualizacaoApp() {
       vivo = false;
     };
   }, [novaVersao]);
+
+  // Antes de saber onde está rodando, nada: evita piscar o bloco errado no SSR.
+  if (!sondou) return null;
+
+  // No navegador não existe "atualizar": a página carregada já é a versão
+  // publicada. O que falta para quem chega aqui é o APK em si, então o espaço
+  // vira o próprio convite para instalar.
+  if (instalada === null) {
+    return (
+      <fieldset>
+        <legend className="mb-3 text-sm font-semibold">App para Android</legend>
+        <div className="space-y-2">
+          <Button asChild className="w-full">
+            <a href={URL_APK} target="_blank" rel="noreferrer">
+              <Download /> Baixar app para Android
+            </a>
+          </Button>
+          <p className="text-center text-xs text-muted-foreground">
+            O app abre igual a esta tela, guarda os mesmos estudos no aparelho e avisa quando há
+            versão nova.
+          </p>
+          <p className="text-center text-xs text-muted-foreground">
+            No iPhone, use “Adicionar à Tela de Início” no menu do Safari.
+          </p>
+        </div>
+      </fieldset>
+    );
+  }
 
   return (
     <fieldset>

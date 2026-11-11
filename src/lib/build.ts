@@ -23,6 +23,7 @@ export const BUILD = {
     "Backup agora tem “Salvar no Drive”, com download normal quando o aparelho não compartilha arquivo.",
     "Antes de atualizar, o app recomenda o backup e já oferece os botões para salvar.",
     "O rodapé mostra só a versão; o que mudou fica atrás de um toque nela.",
+    "Quem entra pelo site vê “Baixar app para Android” em Configurações.",
   ],
 };
 
