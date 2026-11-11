@@ -1,18 +1,19 @@
 import { useState } from "react";
 import { CloudUpload, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  baixarBackup,
-  compartilharBackup,
-  podeCompartilhar,
-  type BackupPronto,
-} from "@/lib/salvar-backup";
+import { baixarBackup, compartilharBackup, type BackupPronto } from "@/lib/salvar-backup";
 
-/** Dois caminhos para o backup: Drive (folha de compartilhamento) e download.
+/** Página inicial do Drive, aberta quando o compartilhamento não existe. */
+const URL_DRIVE = "https://drive.google.com/drive/my-drive";
+
+/** Dois caminhos para o backup: Drive e download.
  *
- *  O botão do Drive só aparece quando o aparelho sabe compartilhar arquivo;
- *  caso contrário fica só o download, com aviso. Assim ninguém aperta um botão
- *  morto dentro do TWA, onde a Web Share API depende do Chrome instalado. */
+ *  O botão do Drive aparece SEMPRE. Motivo: dentro do TWA a Web Share API não
+ *  funciona — o Chrome não propaga o gesto do usuário e `navigator.share`
+ *  falha em silêncio, então esconder o botão não resolve nada. Quando o
+ *  compartilhamento não está disponível, o arquivo é baixado e o app oferece o
+ *  link do Drive para o envio manual, que é o único caminho possível sem código
+ *  nativo. */
 export function BotoesBackup({
   pronto,
   className = "grid gap-2 sm:grid-cols-2",
@@ -21,33 +22,39 @@ export function BotoesBackup({
   className?: string;
 }) {
   const [aviso, setAviso] = useState("");
-  const compartilhavel = pronto ? podeCompartilhar(pronto) : false;
+  const [envioManual, setEnvioManual] = useState(false);
 
   const irParaDrive = async () => {
     if (!pronto) return;
     setAviso("");
+    setEnvioManual(false);
+
     const resultado = await compartilharBackup(pronto);
-    if (resultado === "compartilhado") setAviso("Backup entregue ao app escolhido.");
-    if (resultado === "indisponivel") {
-      baixarBackup(pronto);
-      setAviso("Este aparelho não compartilha arquivo. O backup foi baixado.");
+    if (resultado === "compartilhado") {
+      setAviso("Backup entregue ao app escolhido.");
+      return;
     }
+    if (resultado === "cancelado") return;
+
+    // Sem folha de compartilhamento: o arquivo já foi baixado, falta enviar.
+    baixarBackup(pronto);
+    setEnvioManual(true);
+    setAviso("Backup baixado em Downloads. Envie pelo Drive com + › Enviar.");
   };
 
   return (
     <div className="space-y-2">
       <div className={className}>
-        {compartilhavel && (
-          <Button disabled={!pronto} onClick={irParaDrive}>
-            <CloudUpload /> Salvar no Drive
-          </Button>
-        )}
+        <Button disabled={!pronto} onClick={irParaDrive}>
+          <CloudUpload /> Salvar no Drive
+        </Button>
         <Button
-          variant={compartilhavel ? "outline" : "default"}
+          variant="outline"
           disabled={!pronto}
           onClick={() => {
             if (!pronto) return;
             baixarBackup(pronto);
+            setEnvioManual(false);
             setAviso("Backup salvo nos downloads.");
           }}
         >
@@ -58,6 +65,16 @@ export function BotoesBackup({
         <p role="status" className="text-center text-xs text-muted-foreground">
           {aviso}
         </p>
+      )}
+      {envioManual && (
+        <a
+          href={URL_DRIVE}
+          target="_blank"
+          rel="noreferrer"
+          className="block text-center text-xs font-semibold text-primary underline"
+        >
+          Abrir o Drive para enviar o arquivo
+        </a>
       )}
     </div>
   );

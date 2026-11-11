@@ -12,7 +12,7 @@ import {
 import { restaurarDados } from "@/lib/db";
 import { validarBackup, type BackupEstudos } from "@/lib/backup";
 import { ROTULO_BUILD } from "@/lib/build";
-import { montarBackup, podeCompartilhar, type BackupPronto } from "@/lib/salvar-backup";
+import { montarBackup, type BackupPronto } from "@/lib/salvar-backup";
 
 export function BackupDialog({
   aberto,
@@ -89,15 +89,7 @@ export function BackupDialog({
             O arquivo é criado no seu aparelho. Nenhum conteúdo é enviado para uma conta do app.
           </p>
         </div>
-        <div className="space-y-2">
-          <BotoesBackup pronto={pronto} />
-          {pronto && podeCompartilhar(pronto) && (
-            <p className="text-center text-xs text-muted-foreground">
-              “Salvar no Drive” abre a lista de apps do aparelho: escolha o Drive para guardar fora
-              dele.
-            </p>
-          )}
-        </div>
+        <BotoesBackup pronto={pronto} />
         <Button variant="outline" className="w-full" onClick={() => input.current?.click()}>
           <FileUp /> Restaurar de um arquivo
         </Button>

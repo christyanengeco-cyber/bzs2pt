@@ -7,7 +7,7 @@
  *  `versao` daqui para montar o versionName/versionCode e a startUrl do app
  *  (ver .github/workflows/apk.yml e src/lib/atualizacao.ts). Não duplicar. */
 export const BUILD = {
-  versao: "1.4.0",
+  versao: "1.4.1",
   data: "11/11/2026",
   /** O que mudou nesta versão.
    *
@@ -17,13 +17,13 @@ export const BUILD = {
    *  uma versão nova, escreva os itens aqui e deixe o padrão continuar
    *  escondido (index.tsx: rodapé com `aria-expanded` começando em false). */
   mudancas: [
+    "“Salvar no Drive” passou a funcionar de verdade: quando o Android não abre a folha de compartilhamento, o backup é baixado e aparece o atalho para enviar pelo Drive.",
+    "Quem entra pelo site agora vê “Baixar app para Android” em Configurações.",
     "Agora existe app Android (APK): dá para instalar no celular e usar igual ao PWA.",
     "A biblioteca avisa sozinha quando sai versão nova, com botão para baixar e instalar por cima.",
     "Configurações ganhou “Verificar atualizações”, que vira botão de download quando há versão nova.",
-    "Backup agora tem “Salvar no Drive”, com download normal quando o aparelho não compartilha arquivo.",
     "Antes de atualizar, o app recomenda o backup e já oferece os botões para salvar.",
     "O rodapé mostra só a versão; o que mudou fica atrás de um toque nela.",
-    "Quem entra pelo site vê “Baixar app para Android” em Configurações.",
   ],
 };
 
