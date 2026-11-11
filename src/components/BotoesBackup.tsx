@@ -1,84 +1,64 @@
 import { useState } from "react";
-import { CloudUpload, Download } from "lucide-react";
+import { Download, FolderDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { baixarBackup, compartilharBackup, type BackupPronto } from "@/lib/salvar-backup";
+import {
+  baixarBackup,
+  salvarEmPasta,
+  suportaEscolherPasta,
+  type BackupPronto,
+} from "@/lib/salvar-backup";
 
-/** Página inicial do Drive, aberta quando o compartilhamento não existe. */
-const URL_DRIVE = "https://drive.google.com/drive/my-drive";
-
-/** Dois caminhos para o backup: Drive e download.
+/** Um único caminho: salvar o backup como arquivo.
  *
- *  O botão do Drive aparece SEMPRE. Motivo: dentro do TWA a Web Share API não
- *  funciona — o Chrome não propaga o gesto do usuário e `navigator.share` falha
- *  em silêncio —, então esconder o botão não resolveria nada. Quando o
- *  compartilhamento não está disponível, o arquivo é baixado e o app oferece o
- *  link do Drive para o envio manual, que é o único caminho possível sem código
- *  nativo.
+ *  No computador o navegador abre "salvar como" e o usuário escolhe a pasta. No
+ *  celular isso não existe — o Android não deixa página escolher pasta —, então
+ *  o arquivo vai para Downloads e o aviso diz onde encontrá-lo.
  *
- *  Upload automático (OAuth da Drive API) foi tentado e descartado: em modo de
- *  teste o Google exige que cada conta seja cadastrada antes, o que não escala
- *  para todos os que usam o app. Ver histórico do repositório se um dia voltar. */
-export function BotoesBackup({
-  pronto,
-  className = "grid gap-2 sm:grid-cols-2",
-}: {
-  pronto: BackupPronto | null;
-  className?: string;
-}) {
+ *  Envio automático para o Drive (OAuth) foi tentado e descartado: em modo de
+ *  teste o Google exige cadastrar cada conta antes, o que não escala para todos
+ *  os que usam o app. Ver histórico do repositório. */
+export function BotoesBackup({ pronto }: { pronto: BackupPronto | null }) {
   const [aviso, setAviso] = useState("");
-  const [envioManual, setEnvioManual] = useState(false);
+  const escolhePasta = suportaEscolherPasta();
 
-  const irParaDrive = async () => {
+  const salvar = async () => {
     if (!pronto) return;
     setAviso("");
-    setEnvioManual(false);
 
-    const resultado = await compartilharBackup(pronto);
-    if (resultado === "compartilhado") {
-      setAviso("Backup entregue ao app escolhido.");
+    // Sem suporte, baixa na hora: `await` à toa aqui só adia o download.
+    if (!escolhePasta) {
+      baixarBackup(pronto);
+      setAviso(`Backup salvo em Downloads: ${pronto.nome}`);
+      return;
+    }
+
+    const resultado = await salvarEmPasta(pronto);
+    if (resultado === "salvo") {
+      setAviso("Backup salvo na pasta escolhida.");
       return;
     }
     if (resultado === "cancelado") return;
 
-    // Sem folha de compartilhamento: o arquivo já foi baixado, falta enviar.
     baixarBackup(pronto);
-    setEnvioManual(true);
-    setAviso("Backup baixado em Downloads. Envie pelo Drive com + › Enviar.");
+    setAviso(`Backup salvo em Downloads: ${pronto.nome}`);
   };
 
   return (
     <div className="space-y-2">
-      <div className={className}>
-        <Button disabled={!pronto} onClick={irParaDrive}>
-          <CloudUpload /> Salvar no Drive
-        </Button>
-        <Button
-          variant="outline"
-          disabled={!pronto}
-          onClick={() => {
-            if (!pronto) return;
-            baixarBackup(pronto);
-            setEnvioManual(false);
-            setAviso("Backup salvo nos downloads.");
-          }}
-        >
-          <Download /> Salvar no aparelho
-        </Button>
-      </div>
-      {aviso && (
+      <Button className="w-full" disabled={!pronto} onClick={salvar}>
+        {escolhePasta ? <FolderDown /> : <Download />}
+        {escolhePasta ? "Escolher pasta e salvar" : "Baixar backup"}
+      </Button>
+      {aviso ? (
         <p role="status" className="text-center text-xs text-muted-foreground">
           {aviso}
         </p>
-      )}
-      {envioManual && (
-        <a
-          href={URL_DRIVE}
-          target="_blank"
-          rel="noreferrer"
-          className="block text-center text-xs font-semibold text-primary underline"
-        >
-          Abrir o Drive para enviar o arquivo
-        </a>
+      ) : (
+        <p className="text-center text-xs text-muted-foreground">
+          {escolhePasta
+            ? "O navegador pergunta em qual pasta guardar o arquivo."
+            : "Vai para a pasta Downloads do aparelho. Para mudar, use Configurações do Chrome › Downloads."}
+        </p>
       )}
     </div>
   );

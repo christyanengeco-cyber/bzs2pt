@@ -7,7 +7,7 @@
  *  `versao` daqui para montar o versionName/versionCode e a startUrl do app
  *  (ver .github/workflows/apk.yml e src/lib/atualizacao.ts). Não duplicar. */
 export const BUILD = {
-  versao: "1.5.2",
+  versao: "1.5.3",
   data: "11/11/2026",
   /** O que mudou nesta versão.
    *
@@ -19,7 +19,7 @@ export const BUILD = {
   mudancas: [
     "Configurações agora rola dentro do próprio painel: nada mais fica cortado em tela pequena.",
     "Cada categoria das Configurações abre e fecha: Aparência, Tamanho do texto, Cor de destaque e App e atualizações.",
-    "“Salvar no Drive” baixa o backup e leva direto para a pasta do Drive, onde você envia com + › Enviar. Sem login e sem senha do Google dentro do app.",
+    "Backup ficou só com download: no computador o navegador pergunta a pasta, no celular o arquivo vai para Downloads.",
     "Quem entra pelo site agora vê “Baixar app para Android” em Configurações.",
     "Agora existe app Android (APK): dá para instalar no celular e usar igual ao PWA.",
     "A biblioteca avisa sozinha quando sai versão nova, com botão para baixar e instalar por cima.",

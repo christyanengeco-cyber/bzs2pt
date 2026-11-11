@@ -114,7 +114,7 @@ export function AtualizacaoApp() {
             Instalar por cima mantém seus estudos. Ainda assim, se a instalação falhar no meio, só o
             arquivo de backup recupera.
           </p>
-          <BotoesBackup pronto={pronto} className="grid gap-2" />
+          <BotoesBackup pronto={pronto} />
         </div>
       )}
     </div>
