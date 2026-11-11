@@ -19,8 +19,11 @@ export function elementosPublicacao(doc: Document) {
     ),
   ).filter(
     (el) =>
-      !el.closest("nav, footer, .footnote, .jsRelatedPubs, .noJShide, .relatedImage") &&
-      !(el.tagName === "IMG" && el.closest(".jsRespImg")),
+      // O `noscript` do player traz "Desculpe-nos. O tocador…" e o link "Baixar o
+      // vídeo" — nada disso é conteúdo do estudo.
+      !el.closest(
+        "nav, footer, noscript, .footnote, .jsRelatedPubs, .noJShide, .relatedImage, .downloadLinks, .downloadOptions",
+      ) && !(el.tagName === "IMG" && el.closest(".jsRespImg")),
   );
 }
 

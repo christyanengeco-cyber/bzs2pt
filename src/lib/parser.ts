@@ -79,20 +79,22 @@ export async function fetchProxy(url: string): Promise<PaginaBaixada> {
   const controlador = new AbortController();
   const prazo = setTimeout(() => controlador.abort(), 10000);
   try {
-    const pagina = await Promise.any(PROXIES.map(async (p) => {
-      const endereco = p(url);
-      const origem = new URL(endereco).hostname;
-      try {
-        const r = await fetch(endereco, { signal: controlador.signal });
-        if (!r.ok) throw new Error(`HTTP ${r.status} (${origem})`);
-        const texto = await r.text();
-        if (!respostaUtil(texto)) throw new Error(`${origem}: resposta sem conteúdo útil`);
-        return { texto, url };
-      } catch (e) {
-        anotar(e instanceof Error ? e.message : String(e));
-        throw e;
-      }
-    }));
+    const pagina = await Promise.any(
+      PROXIES.map(async (p) => {
+        const endereco = p(url);
+        const origem = new URL(endereco).hostname;
+        try {
+          const r = await fetch(endereco, { signal: controlador.signal });
+          if (!r.ok) throw new Error(`HTTP ${r.status} (${origem})`);
+          const texto = await r.text();
+          if (!respostaUtil(texto)) throw new Error(`${origem}: resposta sem conteúdo útil`);
+          return { texto, url };
+        } catch (e) {
+          anotar(e instanceof Error ? e.message : String(e));
+          throw e;
+        }
+      }),
+    );
     cacheFetch.set(url, { ...pagina, expira: Date.now() + TEMPO_CACHE });
     return pagina;
   } catch {
@@ -106,12 +108,19 @@ export async function fetchProxy(url: string): Promise<PaginaBaixada> {
   );
 }
 
+/** O jw.org deixa no <noscript> do player um link "Baixar o vídeo" (e o aviso de
+ *  que o tocador não carregou). O layout já descarta `noscript`, e este filtro
+ *  cobre o texto solto — inclusive em estudos importados antes da correção. */
+export const LINK_BAIXAR_VIDEO = /^Baixar(?: o)? v[íi]deo\.?$/i;
+
 export const LIXO =
-  /^(Desculpe-nos\. O tocador de mídia não carregou\.?|Baixar vídeo|Baixar|Compartilhar|Reproduzir)$/i;
+  /^(Desculpe-nos\. O tocador de mídia não carregou\.?|Baixar(?: o)? v[íi]deo|Baixar|Compartilhar|Reproduzir)$/i;
 
 export interface ArtigoRevista {
   titulo: string;
   url: string;
+  /** Rótulo da semana na importação por mês ("2-8 de novembro"). */
+  semana?: string;
 }
 
 /** Se o link for o sumário de uma revista, devolve a lista de artigos; senão, lista vazia. */
@@ -701,7 +710,9 @@ export async function buscarVideoBiblia(href: string): Promise<VideoEncontrado |
   const verso = id % 1000;
   const api = `https://b.jw-cdn.org/apis/pub-media/GETPUBMEDIALINKS?output=json&pub=nwt&fileformat=MP4&alllangs=0&langwritten=LSB&txtCMSLang=LSB&booknum=${livro}&track=${cap}`;
   const j: unknown = JSON.parse((await fetchProxy(api)).texto);
-  const itens = findItensMidia(j).filter((i) => !i.track || i.track === normalizarFaixa(String(cap)));
+  const itens = findItensMidia(j).filter(
+    (i) => !i.track || i.track === normalizarFaixa(String(cap)),
+  );
   const mp4 = escolherMp4(itens.map((i) => i.url));
   if (!mp4) return undefined;
   const marcas = itens.flatMap((i) => i.markers);

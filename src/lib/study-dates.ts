@@ -34,7 +34,7 @@ export function extrairIntervaloSemana(texto: string, anoReferencia = new Date()
     .replace(/(\d)\s*\.?[º°ª]/g, "$1")
     .replace(/\s+/g, " ");
   const match = limpo.match(
-    /(\d{1,2})(?:\s+de\s+([a-z]+))?\s*[-–a]\s*(\d{1,2})\s+de\s+([a-z]+)(?:\s+de\s+(\d{4}))?/i,
+    /(\d{1,2})(?:\s+de\s+([a-z]+)(?:\s+de\s+(\d{4}))?)?\s*[-–a]\s*(\d{1,2})\s+de\s+([a-z]+)(?:\s+de\s+(\d{4}))?/i,
   );
   if (!match) {
     const unico = limpo.match(/^(?:semana de\s+)?(\d{1,2})\s+de\s+([a-z]+)(?:\s+de\s+(\d{4}))?$/);
@@ -48,12 +48,24 @@ export function extrairIntervaloSemana(texto: string, anoReferencia = new Date()
     return { inicio, fim: hojeIso(fim) };
   }
   const diaInicio = Number(match[1]);
-  const diaFim = Number(match[3]);
-  const mesFim = MESES[match[4] ?? ""];
+  const diaFim = Number(match[4]);
+  const mesFim = MESES[match[5] ?? ""];
   const mesInicio = match[2] ? MESES[match[2]] : mesFim;
   if (mesInicio == null || mesFim == null) return null;
-  const anoFim = match[5] ? Number(match[5]) : anoReferencia;
-  const anoInicio = mesInicio > mesFim ? anoFim - 1 : anoFim;
+  // O rótulo pode trazer o ano na abertura ("28 de dezembro de 2026-3 de
+  // janeiro de 2027"), no fechamento ou em nenhum dos dois. Sem tratar o ano
+  // inicial, a última semana de dezembro da apostila ficava sem intervalo.
+  const anoInicioDecl = match[3] ? Number(match[3]) : undefined;
+  const anoFimDecl = match[6] ? Number(match[6]) : undefined;
+  let anoFim: number;
+  let anoInicio: number;
+  if (anoInicioDecl != null) {
+    anoInicio = anoInicioDecl;
+    anoFim = anoFimDecl ?? (mesFim < mesInicio ? anoInicio + 1 : anoInicio);
+  } else {
+    anoFim = anoFimDecl ?? anoReferencia;
+    anoInicio = mesInicio > mesFim ? anoFim - 1 : anoFim;
+  }
   const inicio = isoLocal(anoInicio, mesInicio, diaInicio);
   const fim = isoLocal(anoFim, mesFim, diaFim);
   return inicio && fim && inicio <= fim ? { inicio, fim } : null;

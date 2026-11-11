@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extrairUrlCanonical, importarHtml, linkEstudoLivro } from "@/lib/parser";
+import { extrairUrlCanonical, importarHtml, LIXO, linkEstudoLivro } from "@/lib/parser";
 
 describe("link do estudo de livro (wcg/lff)", () => {
   it("cria o link quando o livro está no mesmo parágrafo do Estudo bíblico", () => {
@@ -164,5 +164,28 @@ describe("estrutura do leitor vinda do jw.org", () => {
   it("marca a versão 2 do layout para reimportar os estudos antigos", async () => {
     const { publicacao } = await importarHtml(html, "https://www.jw.org/pt/artigo/");
     expect(publicacao.layout_versao).toBe(2);
+  });
+
+  it("não importa o link 'Baixar o vídeo' do <noscript> do player", async () => {
+    const comPlayer = `<article>
+      <h1 data-pid="1">Para agradar a Jeová, continue treinando sua consciência</h1>
+      <div class="slContentVideo"><div class="jsIncludeVideo">
+        <noscript>
+          <p class="error">Desculpe-nos. O tocador de mídia não carregou.</p>
+          <p><a href="https://b.jw-cdn.org/apis/pub-media/GETPUBMEDIALINKS">Baixar o vídeo</a></p>
+        </noscript>
+      </div></div>
+      <p data-pid="8">Uma consciência treinada.</p>
+    </article>`;
+    const { paragrafos } = await importarHtml(comPlayer, "https://www.jw.org/pt/artigo/");
+    expect(paragrafos.map((p) => p.texto_portugues)).toEqual([
+      "Para agradar a Jeová, continue treinando sua consciência",
+      "Uma consciência treinada.",
+    ]);
+  });
+
+  it("reconhece o texto do link como lixo, com ou sem o artigo", () => {
+    expect(LIXO.test("Baixar o vídeo")).toBe(true);
+    expect(LIXO.test("Baixar vídeo")).toBe(true);
   });
 });

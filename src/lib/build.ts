@@ -3,10 +3,10 @@
  *  (o Lovable nem sempre publica o último commit do GitHub de imediato).
  *  Atualizar estes valores a cada alteração relevante enviada para o app. */
 export const BUILD = {
-  versao: "1.3.10",
-  data: "05/11/2026",
+  versao: "1.3.12",
+  data: "11/11/2026",
   resumo:
-    "Recuperação automática dos estudos já salvos: ao abrir um estudo que ficou no _r240P.mp4/_r360P.mp4 da versão antiga, o leitor confirma a variante em 720p no CDN e atualiza o estudo sozinho — sem precisar apagar e importar tudo de novo; sem confirmação, o estudo segue no vídeo atual",
+    "Sem o link “Baixar o vídeo” no começo dos estudos: ele vem do aviso de fallback do player do jw.org, sai já na importação e também some dos estudos salvos antes desta versão. As caixas de Apostila/Sentinela e de mês agora aparecem preenchidas com a cor de destaque e um check na opção escolhida",
 };
 
 export const ROTULO_BUILD = `v${BUILD.versao} · ${BUILD.data}`;

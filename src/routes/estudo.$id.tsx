@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import {
   LIXO,
+  LINK_BAIXAR_VIDEO,
   buscarReferencia,
   buscarVideoBiblia,
   idsBiblia,
@@ -171,8 +172,12 @@ function Leitor() {
     return () => document.removeEventListener("selectionchange", f);
   });
   const estaOculto = (p: Paragrafo) => p.oculto ?? LIXO.test(p.texto_portugues);
-  const visiveis = paras.filter((p) => !estaOculto(p));
-  const ocultos = paras.filter(estaOculto);
+  // Estudos importados antes da correção guardaram o link "Baixar o vídeo" do
+  // <noscript> como parágrafo visível (`oculto: false`). Ele é bloqueado de
+  // qualquer forma — nem entra em "Itens ocultos", porque não é conteúdo.
+  const ehLinkBaixar = (p: Paragrafo) => LINK_BAIXAR_VIDEO.test(p.texto_portugues.trim());
+  const visiveis = paras.filter((p) => !ehLinkBaixar(p) && !estaOculto(p));
+  const ocultos = paras.filter((p) => !ehLinkBaixar(p) && estaOculto(p));
   const secoes = (() => {
     let secao: Secao | undefined;
     return visiveis.map((p) => {
@@ -1054,7 +1059,7 @@ function PainelReferencia({
             <>
               <p className="mb-2 font-bold">{mini.pub.titulo}</p>
               {mini.paras
-                .filter((p) => !p.oculto)
+                .filter((p) => !p.oculto && !LINK_BAIXAR_VIDEO.test(p.texto_portugues.trim()))
                 .map((p, i, arr) => {
                   const ativoP =
                     tMini >= p.timestamp_inicio &&

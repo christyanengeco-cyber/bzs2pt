@@ -75,6 +75,13 @@ describe("datas de estudo", () => {
     });
   });
 
+  it("interpreta a virada com ano nas duas pontas do rótulo", () => {
+    expect(extrairIntervaloSemana("28 de dezembro de 2026-3 de janeiro de 2027")).toEqual({
+      inicio: "2026-12-28",
+      fim: "2027-01-03",
+    });
+  });
+
   it("escolhe a semana atual ou a anterior mais recente", () => {
     const estudos = [
       pub("anterior", "2026-10-05", "2026-10-11"),

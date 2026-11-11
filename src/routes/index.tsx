@@ -36,8 +36,10 @@ import {
   ordenarSemanasCronologicamente,
 } from "@/lib/study-dates";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { TutorialDialog } from "@/components/TutorialDialog";
 import { agruparReunioes } from "@/lib/meeting-weeks";
 import { BackupDialog } from "@/components/BackupDialog";
+import { buscarMes, mesDeslocado, rotuloDoMes, type EdicaoMes } from "@/lib/importacao-mes";
 import { Button } from "@/components/ui/button";
 import { BUILD, ROTULO_BUILD } from "@/lib/build";
 
@@ -71,6 +73,24 @@ const ABAS: { id: Aba; nome: string }[] = [
 const ordenarPorTitulo = (a: Publicacao, b: Publicacao) =>
   a.titulo.localeCompare(b.titulo, "pt-BR", { numeric: true, sensitivity: "base" }) ||
   b.criado_em - a.criado_em;
+
+/** Compara endereços do jw.org sem depender de barra final, acentos escapados ou
+ *  maiúsculas: o mesmo estudo pode chegar por link colado, por edição do mês ou
+ *  por redirecionamento do finder. */
+function chaveUrl(url: string) {
+  try {
+    const u = new URL(url);
+    let caminho = u.pathname;
+    try {
+      caminho = decodeURIComponent(caminho);
+    } catch {
+      /* mantém o caminho como veio */
+    }
+    return (u.origin + caminho).replace(/\/+$/, "").toLowerCase();
+  } catch {
+    return url.trim().replace(/\/+$/, "").toLowerCase();
+  }
+}
 
 /** Cápsula da aba Estudo: um estudo da semana (meio de semana ou fim de semana).
  *  Sem publicação, mostra o estado vazio nomeado — nunca um bloco mudo. */
@@ -137,11 +157,18 @@ function Biblioteca() {
   const [aba, setAba] = useState<Aba>("estudo");
   const [aberto, setAberto] = useState(false);
   const [backup, setBackup] = useState(false);
+  const [tutorial, setTutorial] = useState(false);
   const semanaAtiva = useRef<HTMLButtonElement>(null);
   const [selecionadas, setSelecionadas] = useState<Partial<Record<Aba, string>>>({});
   const recarregar = () => listarPublicacoes().then(setPubs);
   useEffect(() => {
     recarregar();
+    // Tutorial só abre sozinho na primeira visita; depois, apenas pelo botão em
+    // Configurações.
+    if (!localStorage.getItem("tutorial-visto")) {
+      localStorage.setItem("tutorial-visto", "1");
+      setTutorial(true);
+    }
   }, []);
 
   const daAba = useMemo(
@@ -156,11 +183,13 @@ function Biblioteca() {
   // Agrupa por semana: meio de semana e fim de semana da mesma semana ficam juntos
   // (intervalos que se sobrepõem ou texto de semana idêntico), espelhando a aba
   // Reuniões do JW Library. Quem não tem data fica em grupo próprio.
-  const semanas = useMemo(() => aba === "extras" ? [] : agruparReunioes(daAba), [daAba, aba]);
+  const semanas = useMemo(() => (aba === "extras" ? [] : agruparReunioes(daAba)), [daAba, aba]);
 
   const escolhaPadrao = aba === "extras" ? null : escolherSemanaInicial(daAba);
   const publicacaoPadrao = escolhaPadrao ? daAba.find((p) => p.id === escolhaPadrao.id) : undefined;
-  const chavePadrao = semanas.find((g) => g.estudos.some((p) => p.id === publicacaoPadrao?.id))?.chave;
+  const chavePadrao = semanas.find((g) =>
+    g.estudos.some((p) => p.id === publicacaoPadrao?.id),
+  )?.chave;
   const chaveSelecionada = semanas.some((s) => s.chave === selecionadas[aba])
     ? selecionadas[aba]
     : chavePadrao;
@@ -283,36 +312,46 @@ function Biblioteca() {
                 <section aria-labelledby="meio-semana" className="space-y-3">
                   <div className="flex items-center gap-3 border-l-4 border-section pl-3">
                     <CalendarDays className="h-6 w-6 shrink-0 text-section" />
-                    <div><h2 id="meio-semana" className="text-lg font-bold text-section">Reunião de meio de semana</h2><p className="text-sm text-muted-foreground">Vida e Ministério</p></div>
+                    <div>
+                      <h2 id="meio-semana" className="text-lg font-bold text-section">
+                        Reunião de meio de semana
+                      </h2>
+                      <p className="text-sm text-muted-foreground">Vida e Ministério</p>
+                    </div>
                   </div>
-                {meiosDaSemana.length === 0 && (
-                  <CapsulaEstudo reuniao="meio de semana" aoExcluir={excluirEstudo} />
-                )}
-                {meiosDaSemana.map((p) => (
-                  <CapsulaEstudo
-                    key={p.id}
-                    reuniao="meio de semana"
-                    pub={p}
-                    aoExcluir={excluirEstudo}
-                  />
-                ))}
+                  {meiosDaSemana.length === 0 && (
+                    <CapsulaEstudo reuniao="meio de semana" aoExcluir={excluirEstudo} />
+                  )}
+                  {meiosDaSemana.map((p) => (
+                    <CapsulaEstudo
+                      key={p.id}
+                      reuniao="meio de semana"
+                      pub={p}
+                      aoExcluir={excluirEstudo}
+                    />
+                  ))}
                 </section>
                 <section aria-labelledby="fim-semana" className="space-y-3 border-t pt-7">
                   <div className="flex items-center gap-3 border-l-4 border-primary pl-3">
                     <Users className="h-6 w-6 shrink-0 text-primary" />
-                    <div><h2 id="fim-semana" className="text-lg font-bold text-primary">Reunião de fim de semana</h2><p className="text-sm text-muted-foreground">Estudo de A Sentinela</p></div>
+                    <div>
+                      <h2 id="fim-semana" className="text-lg font-bold text-primary">
+                        Reunião de fim de semana
+                      </h2>
+                      <p className="text-sm text-muted-foreground">Estudo de A Sentinela</p>
+                    </div>
                   </div>
-                {finsDaSemana.length === 0 && (
-                  <CapsulaEstudo reuniao="fim de semana" aoExcluir={excluirEstudo} />
-                )}
-                {finsDaSemana.map((p) => (
-                  <CapsulaEstudo
-                    key={p.id}
-                    reuniao="fim de semana"
-                    pub={p}
-                    aoExcluir={excluirEstudo}
-                  />
-                ))}
+                  {finsDaSemana.length === 0 && (
+                    <CapsulaEstudo reuniao="fim de semana" aoExcluir={excluirEstudo} />
+                  )}
+                  {finsDaSemana.map((p) => (
+                    <CapsulaEstudo
+                      key={p.id}
+                      reuniao="fim de semana"
+                      pub={p}
+                      aoExcluir={excluirEstudo}
+                    />
+                  ))}
                 </section>
               </div>
             ) : (
@@ -361,6 +400,7 @@ function Biblioteca() {
         {BUILD.resumo && <p className="mx-auto mt-0.5 max-w-sm">{BUILD.resumo}</p>}
       </footer>
       <BackupDialog aberto={backup} onOpenChange={setBackup} onRestored={recarregar} />
+      <TutorialDialog aberto={tutorial} onOpenChange={setTutorial} />
       {aberto && (
         <ImportModal
           existentes={new Set(pubs.map((p) => p.url_origem))}
@@ -398,6 +438,11 @@ function ImportModal({
   const [ultimoTipo, setUltimoTipo] = useState<TipoPub | null>(null);
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
   const [extras, setExtras] = useState(false);
+  const [vista, setVista] = useState<"mes" | "link">("mes");
+  const [tipoMes, setTipoMes] = useState<"apostila" | "sentinela">("apostila");
+  const [deslocMes, setDeslocMes] = useState(0);
+  const [edicao, setEdicao] = useState<EdicaoMes | null>(null);
+  const [alvoRotulo, setAlvoRotulo] = useState("");
   const [inicio, setInicio] = useState<number | null>(null);
   const [agora, setAgora] = useState(Date.now());
   useEffect(() => {
@@ -425,8 +470,42 @@ function ImportModal({
       return n;
     });
 
+  const existentesNorm = useMemo(() => new Set(Array.from(existentes, chaveUrl)), [existentes]);
+  const jaImportado = (u: string) => existentes.has(u) || existentesNorm.has(chaveUrl(u));
+
+  /** Preenche a lista de seleção do mês com o mesmo estado usado pela revista. */
+  function mostrarMes(lista: ArtigoRevista[], edicaoEncontrada: EdicaoMes) {
+    setEdicao(edicaoEncontrada);
+    setArtigos(lista);
+    setMarcados(new Set(lista.filter((a) => !jaImportado(a.url)).map((a) => a.url)));
+    setStatus(
+      Object.fromEntries(
+        lista.map((a) => [a.url, jaImportado(a.url) ? "existente" : "aguardando"]),
+      ),
+    );
+  }
+
+  async function buscarMesInteiro() {
+    setErro("");
+    setAvisos([]);
+    const alvo = mesDeslocado(deslocMes);
+    setCarregando(true);
+    try {
+      const r = await buscarMes(tipoMes, alvo.ano, alvo.mes);
+      setAlvoRotulo(rotuloDoMes(alvo.ano, alvo.mes));
+      mostrarMes(
+        r.artigos.map(({ titulo, url: endereco, semana }) => ({ titulo, url: endereco, semana })),
+        r.edicao,
+      );
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : String(e));
+    } finally {
+      setCarregando(false);
+    }
+  }
+
   async function importarUm(u: string) {
-    if (existentes.has(u) || status[u] === "concluido") {
+    if (jaImportado(u) || status[u] === "concluido") {
       setStatus((s) => ({ ...s, [u]: "existente" }));
       return null;
     }
@@ -550,13 +629,31 @@ function ImportModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 id="import-title" className="text-xl font-bold">
-            {artigos ? "Artigos da revista" : "Importar do jw.org"}
-          </h2>
+          <div className="min-w-0">
+            <h2 id="import-title" className="text-xl font-bold">
+              {artigos ? (edicao ? "Estudos do mês" : "Artigos da revista") : "Importar do jw.org"}
+            </h2>
+            {edicao && (
+              <p className="text-xs text-muted-foreground">
+                {edicao.tipo === "apostila" ? "Apostila" : "Sentinela"} · semanas de{" "}
+                {alvoRotulo || edicao.rotulo}
+              </p>
+            )}
+          </div>
           <Button variant="ghost" size="icon" onClick={fechar} aria-label="Fechar">
             <X />
           </Button>
         </div>
+        <input
+          ref={arquivoRef}
+          type="file"
+          accept=".html,.htm,.mhtml,.mht,text/html,application/x-mimearchive"
+          className="hidden"
+          onChange={(e) => {
+            importarArquivo(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
         {artigos ? (
           <>
             <ul className="divide-y border-y">
@@ -576,6 +673,11 @@ function ImportModal({
                         className="mt-0.5 h-5 w-5 shrink-0 accent-primary"
                       />
                       <div className="min-w-0 flex-1">
+                        {a.semana && a.semana !== a.titulo && (
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
+                            {a.semana}
+                          </p>
+                        )}
                         <p className="text-sm font-semibold leading-snug">{a.titulo}</p>
                         <p
                           className={`mt-1 text-xs ${estado === "erro" ? "text-destructive" : "text-muted-foreground"}`}
@@ -602,15 +704,18 @@ function ImportModal({
                 );
               })}
             </ul>
-            <label className="mt-4 flex items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                checked={extras}
-                onChange={(e) => setExtras(e.target.checked)}
-                className="h-5 w-5 shrink-0 accent-primary"
-              />
-              Salvar na aba <span className="font-semibold">Extras</span>&nbsp;(livros e brochuras)
-            </label>
+            {!edicao && (
+              <label className="mt-4 flex items-center gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={extras}
+                  onChange={(e) => setExtras(e.target.checked)}
+                  className="h-5 w-5 shrink-0 accent-primary"
+                />
+                Salvar na aba <span className="font-semibold">Extras</span>&nbsp;(livros e
+                brochuras)
+              </label>
+            )}
             {carregando && lote.total > 0 && (
               <AnelProgresso feitos={lote.feitos} total={lote.total} tempo={cron} />
             )}
@@ -636,12 +741,169 @@ function ImportModal({
                   Importação concluída. Você pode fechar ou importar os itens restantes.
                 </p>
               )}
+              {!carregando && edicao && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setArtigos(null);
+                    setEdicao(null);
+                    setStatus({});
+                    setErros({});
+                    setMarcados(new Set());
+                    setErro("");
+                    setVista("mes");
+                  }}
+                >
+                  Escolher outro mês
+                </Button>
+              )}
+            </div>
+          </>
+        ) : vista === "mes" ? (
+          <>
+            <p className="mb-2 text-sm font-semibold">Importar mês inteiro</p>
+            <p className="mb-2 text-xs text-muted-foreground">Publicação</p>
+            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Publicação">
+              {(
+                [
+                  { id: "apostila", nome: "Apostila", desc: "Vida e Ministério", icone: BookOpen },
+                  {
+                    id: "sentinela",
+                    nome: "Sentinela",
+                    desc: "Estudo de A Sentinela",
+                    icone: Users,
+                  },
+                ] as const
+              ).map((opcao) => {
+                const ativo = tipoMes === opcao.id;
+                return (
+                  <Button
+                    key={opcao.id}
+                    variant={ativo ? "default" : "outline"}
+                    aria-pressed={ativo}
+                    className={`relative h-auto flex-col items-start gap-1 overflow-visible py-3 pr-9 text-left ${
+                      ativo ? "border-2 border-primary shadow-md" : ""
+                    }`}
+                    onClick={() => setTipoMes(opcao.id)}
+                  >
+                    <opcao.icone className="h-5 w-5" />
+                    <span className="text-sm font-semibold">{opcao.nome}</span>
+                    <span
+                      className={`text-xs font-normal ${
+                        ativo ? "text-primary-foreground/85" : "text-muted-foreground"
+                      }`}
+                    >
+                      {opcao.desc}
+                    </span>
+                    {ativo && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-primary-foreground/20"
+                      >
+                        <Check className="h-4 w-4" />
+                      </span>
+                    )}
+                  </Button>
+                );
+              })}
+            </div>
+            <p className="mb-2 mt-4 text-sm font-semibold">Mês</p>
+            <div
+              className="grid grid-cols-2 gap-1 rounded-md border p-1"
+              role="group"
+              aria-label="Mês"
+            >
+              {[0, 1].map((deslocamento) => {
+                const ativo = deslocMes === deslocamento;
+                return (
+                  <Button
+                    key={deslocamento}
+                    variant={ativo ? "default" : "ghost"}
+                    aria-pressed={ativo}
+                    className={`h-10 text-sm ${ativo ? "font-semibold shadow-sm" : ""}`}
+                    onClick={() => setDeslocMes(deslocamento)}
+                  >
+                    {ativo && <Check className="h-4 w-4" />}
+                    {deslocamento === 0 ? "Este mês" : "Próximo mês"}
+                  </Button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-center text-xs text-muted-foreground">
+              {rotuloDoMes(mesDeslocado(deslocMes).ano, mesDeslocado(deslocMes).mes)}
+            </p>
+            {erro && (
+              <p role="alert" className="mt-3 text-sm text-destructive">
+                {erro}
+              </p>
+            )}
+            {avisos.map((aviso) => (
+              <p key={aviso} className="mt-3 border-l-2 border-primary bg-selection p-2 text-sm">
+                {aviso}
+              </p>
+            ))}
+            <Button className="mt-4 w-full" disabled={carregando} onClick={buscarMesInteiro}>
+              {carregando && <Loader2 className="animate-spin" />}
+              {carregando ? "Buscando estudos" : "Buscar estudos do mês"} {cron}
+            </Button>
+            <div className="mt-5 border-t pt-4">
+              <Button
+                variant="outline"
+                className="w-full"
+                disabled={carregando}
+                onClick={() => {
+                  setErro("");
+                  setAvisos([]);
+                  setExtras(true);
+                  setVista("link");
+                }}
+              >
+                <BookOpen /> É livro ou brochura?
+              </Button>
+              <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Alternativas
+              </p>
+              <div className="flex flex-col gap-2">
+                <Button
+                  variant="ghost"
+                  className="justify-start"
+                  disabled={carregando}
+                  onClick={() => {
+                    setErro("");
+                    setAvisos([]);
+                    setExtras(false);
+                    setVista("link");
+                  }}
+                >
+                  <Link2 /> Importar link do site
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="justify-start"
+                  disabled={carregando}
+                  onClick={() => arquivoRef.current?.click()}
+                >
+                  <FileUp /> Importar arquivo .html ou .mhtml
+                </Button>
+              </div>
             </div>
           </>
         ) : (
           <>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ml-2 mb-2"
+              disabled={carregando}
+              onClick={() => {
+                setErro("");
+                setVista("mes");
+              }}
+            >
+              Voltar
+            </Button>
             <label htmlFor="import-url" className="mb-2 block text-sm text-muted-foreground">
-              Link da revista ou da matéria
+              Link da revista, do livro ou da matéria
             </label>
             <div className="flex items-center gap-2 rounded-md border bg-transparent px-3">
               <Link2 className="h-4 w-4 text-muted-foreground" />
@@ -696,16 +958,6 @@ function ImportModal({
               {carregando ? <Loader2 className="animate-spin" /> : <FileUp />} Importar arquivo
               salvo do jw.org (.html/.mhtml)
             </Button>
-            <input
-              ref={arquivoRef}
-              type="file"
-              accept=".html,.htm,.mhtml,.mht,text/html,application/x-mimearchive"
-              className="hidden"
-              onChange={(e) => {
-                importarArquivo(e.target.files?.[0]);
-                e.target.value = "";
-              }}
-            />
             <p className="mt-2 text-center text-xs text-muted-foreground">
               Salve a página no navegador (menu ⋮ → Baixar) e escolha o arquivo aqui — funciona
               mesmo quando o download automático falha.
