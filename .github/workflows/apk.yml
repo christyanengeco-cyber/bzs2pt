@@ -123,8 +123,7 @@ jobs:
           signer="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           [ -x "$signer" ] || signer=$(command -v apksigner)
           sha=$("$signer" verify --print-certs "$apk" \
-                | awk -F': ' '/SHA-256 digest/{print $2; exit}' \
-                | tr '[:lower:]' '[:upper:]')
+                | awk -F': ' '/SHA-256 digest/{print $2; exit}')
           if [ -z "$sha" ]; then
             echo "Não foi possível ler a digital SHA-256 do APK." >&2
             exit 1
@@ -134,7 +133,10 @@ jobs:
 
       - name: Atualizar assetlinks.json
         if: steps.publicado.outputs.existe == 'nao'
-        run: node scripts/assetlinks.mjs "${{ steps.digital.outputs.sha }}"
+        run: |
+          # O script normaliza a digital (com ou sem dois-pontos), então o
+          # formato do apksigner não importa aqui.
+          node scripts/assetlinks.mjs "${{ steps.digital.outputs.sha }}"
 
       - name: Publicar release com o APK
         if: steps.publicado.outputs.existe == 'nao'

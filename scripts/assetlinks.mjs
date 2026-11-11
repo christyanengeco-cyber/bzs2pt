@@ -14,13 +14,19 @@ const SITE = "https://bzs2pt.lovable.app";
 const PACOTE = "br.com.estudoemlibras.app";
 const DESTINO = resolve("public/.well-known/assetlinks.json");
 
-const digital = (process.argv[2] ?? "").trim().toUpperCase();
+const bruto = (process.argv[2] ?? "").trim();
 
-if (!/^([0-9A-F]{2}:){31}[0-9A-F]{2}$/.test(digital)) {
-  console.error(`Digital SHA-256 inválida: "${digital}"`);
-  console.error("Esperado 32 bytes separados por dois-pontos, ex.: AB:CD:...");
+// Aceita com ou sem dois-pontos: o keytool imprime "AA:BB:…", o apksigner
+// imprime "aabb…". Normalizar aqui evita depender de sed/tr no workflow.
+const hex = bruto.replace(/[^0-9a-fA-F]/g, "").toUpperCase();
+
+if (hex.length !== 64) {
+  console.error(`Digital SHA-256 inválida: "${bruto}"`);
+  console.error("Esperado 64 dígitos hexadecimais (com ou sem dois-pontos).");
   process.exit(1);
 }
+
+const digital = hex.match(/../g).join(":");
 
 const conteudo = [
   {
