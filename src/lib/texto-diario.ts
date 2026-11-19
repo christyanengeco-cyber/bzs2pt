@@ -1,9 +1,11 @@
 /** Texto diário em português, buscado sob demanda (um dia por vez) no wol.jw.org
  *  e guardado no aparelho. A data vem do relógio, então a virada de ano é automática. */
-export type TextoDiario = { data: string; titulo: string; tema: string; comentario: string[] };
+export type Trecho = { t: string; href?: string };
+export type TextoDiario = { data: string; titulo: string; tema: Trecho[]; comentario: Trecho[][] };
 
 export const CHAVE_PREF = "texto-diario-ativo";
 export const EVENTO_PREF = "texto-diario-pref";
+const WOL = "https://wol.jw.org";
 
 export function textoDiarioAtivo(): boolean {
   return localStorage.getItem(CHAVE_PREF) !== "0";
@@ -18,10 +20,22 @@ export function chaveDia(d: Date) {
 }
 
 export function urlDia(d: Date) {
-  return `https://wol.jw.org/pt/wol/dt/r5/lp-t/${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+  return `${WOL}/pt/wol/dt/r5/lp-t/${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-/** Extrai o texto do dia: o bloco com h2 + p.themeScrp + .bodyTxt. */
+/** Texto e links (Bíblia e publicação de estudo) de um parágrafo. */
+function trechos(el: Element): Trecho[] {
+  const out: Trecho[] = [];
+  const andar = (n: Node) => {
+    if (n.nodeType === 3) out.push({ t: n.textContent ?? "" });
+    else if (n instanceof Element && n.tagName === "A" && n.getAttribute("href")) {
+      out.push({ t: n.textContent ?? "", href: new URL(n.getAttribute("href")!, WOL).href });
+    } else n.childNodes.forEach(andar);
+  };
+  el.childNodes.forEach(andar);
+  return out.map((x) => ({ ...x, t: x.t.replace(/\s+/g, " ") })).filter((x) => x.t);
+}
+
 export function extrairTextoDiario(html: string, data: string): TextoDiario | null {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const tema = doc.querySelector("p.themeScrp");
@@ -29,12 +43,49 @@ export function extrairTextoDiario(html: string, data: string): TextoDiario | nu
   const bloco = tema.parentElement;
   const titulo = bloco?.querySelector("h2")?.textContent?.trim() ?? "";
   const comentario = Array.from(bloco?.querySelectorAll(".bodyTxt p") ?? [])
-    .map((p) => p.textContent?.replace(/\s+/g, " ").trim() ?? "")
-    .filter(Boolean);
-  return { data, titulo, tema: tema.textContent?.replace(/\s+/g, " ").trim() ?? "", comentario };
+    .map(trechos)
+    .filter((t) => t.length);
+  return { data, titulo, tema: trechos(tema), comentario };
 }
 
-const PREFIXO = "texto-diario:";
+/** Conteúdo de um link do texto diário: versículos (#v=l:c:v[-l:c:v]) ou
+ *  parágrafos (#h=23:0-25:0) da página de destino. */
+export function extrairReferencia(html: string, urlFinal: string): { titulo: string; paragrafos: string[] } {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const hash = urlFinal.split("#")[1] ?? "";
+  const limpo = (e: Element) => {
+    const c = e.cloneNode(true) as Element;
+    c.querySelectorAll("a.fn, a.b, sup, .parNum").forEach((x) => {
+      if (!x.matches("a.b")) x.remove();
+    });
+    return c.textContent?.replace(/\s+/g, " ").trim() ?? "";
+  };
+  const v = /v=(\d+):(\d+):(\d+)(?:-(\d+):(\d+):(\d+))?/.exec(hash);
+  if (v) {
+    const [l, c, ini] = [v[1]!, v[2]!, +v[3]!];
+    const fim = v[6] && v[5] === c ? +v[6] : ini;
+    const versos: string[] = [];
+    for (let n = ini; n <= fim; n++) {
+      const partes = Array.from(doc.querySelectorAll(`[id^="v${l}-${c}-${n}-"]`)).map(limpo).join(" ");
+      if (partes) versos.push(partes.replace(/^\d+\s*/, `${n} `));
+    }
+    const livro = doc.querySelector("title")?.textContent?.split("|")[0]?.trim() ?? "";
+    return { titulo: `${livro}${livro ? ":" : ""}${ini}${fim > ini ? `-${fim}` : ""}`, paragrafos: versos };
+  }
+  const h = /h=(\d+)(?::\d+)?(?:-(\d+))?/.exec(hash);
+  const titulo = doc.querySelector("h1")?.textContent?.trim() ?? "";
+  if (h) {
+    const out: string[] = [];
+    for (let n = +h[1]!; n <= +(h[2] ?? h[1]!); n++) {
+      const e = doc.getElementById(`p${n}`);
+      if (e) out.push(limpo(e));
+    }
+    return { titulo, paragrafos: out.filter(Boolean) };
+  }
+  return { titulo, paragrafos: Array.from(doc.querySelectorAll("article p")).slice(0, 6).map(limpo).filter(Boolean) };
+}
+
+const PREFIXO = "texto-diario2:";
 
 export async function obterTextoDiario(
   d: Date,
@@ -45,7 +96,7 @@ export async function obterTextoDiario(
   if (salvo) return JSON.parse(salvo) as TextoDiario;
   const texto = extrairTextoDiario(await baixar(urlDia(d)), data);
   if (!texto) throw new Error("Texto diário não encontrado");
-  // Guarda só ~10 dias para não acumular.
+  Object.keys(localStorage).filter((k) => k.startsWith("texto-diario:")).forEach((k) => localStorage.removeItem(k));
   const chaves = Object.keys(localStorage).filter((k) => k.startsWith(PREFIXO)).sort();
   while (chaves.length >= 10) localStorage.removeItem(chaves.shift()!);
   localStorage.setItem(PREFIXO + data, JSON.stringify(texto));

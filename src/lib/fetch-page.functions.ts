@@ -61,7 +61,7 @@ async function examinar(r: Response, url: string): Promise<string> {
 /** Uma tentativa no canal direto, assinando a recusa (DIRETRIZES nº 9).
  *  Devolve também a URL final — o jw.org redireciona links /open?docid para
  *  o endereço real do artigo, e o dedup de estudos precisa do endereço final. */
-async function baixarDe(url: string): Promise<{ texto: string; urlFinal: string }> {
+async function baixarDe(url: string, saltos = 0): Promise<{ texto: string; urlFinal: string }> {
   let resposta: Response;
   try {
     resposta = await fetch(url, {
@@ -78,6 +78,17 @@ async function baixarDe(url: string): Promise<{ texto: string; urlFinal: string 
     );
   }
   if (!resposta.ok) throw new Error(`direto: HTTP ${resposta.status}`);
+  // Links curtos do wol.jw.org (/bc/, /pc/) respondem com <meta refresh>;
+  // seguimos uma vez e devolvemos o destino com o #hash (versículo/parágrafo).
+  if (/(^|\.)wol\.jw\.org$/i.test(new URL(url).hostname) && saltos < 2) {
+    const bruto = await resposta.clone().text();
+    const m = /http-equiv="refresh"\s+content="0;url='([^']+)'/i.exec(bruto.slice(0, 2000));
+    if (m) {
+      const destino = new URL(m[1], url).href;
+      const r = await baixarDe(destino.split("#")[0], saltos + 1);
+      return { texto: r.texto, urlFinal: destino };
+    }
+  }
   try {
     const texto = await examinar(resposta, url);
     return { texto, urlFinal: resposta.url };
