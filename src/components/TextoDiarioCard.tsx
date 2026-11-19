@@ -19,7 +19,7 @@ export function TextoDiarioCard() {
   const abrir = (href: string, rotulo: string) => {
     setRef({ href, rotulo });
     baixarPagina({ data: { url: href } })
-      .then((r) => setRef((a) => a && a.href === href ? { ...a, ...extrairReferencia(r.texto, r.url) } : a))
+      .then((r) => setRef((a) => a && a.href === href ? { ...a, ...extrairReferencia(r.texto, r.url, rotulo) } : a))
       .catch(() => setRef((a) => a && a.href === href ? { ...a, erro: true } : a));
   };
   const linha = (ts: Trecho[]) =>
@@ -82,7 +82,7 @@ export function TextoDiarioCard() {
         <div className="h-10 animate-pulse rounded bg-muted" />
       ) : (
         <div style={{ fontSize: "calc(1rem * var(--escala-texto, 1))" }}>
-          <p className="font-medium italic text-primary">{linha(texto.tema)}</p>
+          <p className="font-medium italic">{linha(texto.tema)}</p>
           {aberto && texto.comentario.map((p, i) => (
             <p key={i} className="mt-2 text-sm leading-relaxed" style={{ fontSize: "inherit" }}>{linha(p)}</p>
           ))}
