@@ -7,6 +7,7 @@ import {
   imagemDoElemento,
   estruturaDoElemento,
   guardarImagem,
+  textoVisivel,
 } from "./publication-layout";
 
 // corsproxy.io passou a exigir chave de API (responde 401), então saiu da lista;
@@ -443,7 +444,7 @@ export async function importarHtml(html: string, urlOrigem: string): Promise<Res
 
   // 1. título e semana
   const titulo =
-    doc.querySelector("article h1, h1")?.textContent?.trim() ||
+    textoVisivel(doc.querySelector("article h1, h1")) ||
     doc.querySelector('meta[property="og:title"]')?.getAttribute("content") ||
     doc.title ||
     "Sem título";
@@ -603,7 +604,7 @@ export async function importarHtml(html: string, urlOrigem: string): Promise<Res
     // O número de estudo vive em `span.parNum` ("9 Pense no seguinte"): separado,
     // ele vira sobrescrito no leitor em vez de número colado no texto.
     const pnum = el.querySelector("span.parNum")?.getAttribute("data-pnum");
-    const bruto = el.textContent?.replace(/\s+/g, " ").trim() ?? "";
+    const bruto = textoVisivel(el);
     const t = pnum ? bruto.replace(/^\d+\s+/, "") : bruto;
     if (t.length < 3) continue;
     const pergunta =
@@ -739,7 +740,7 @@ export async function buscarReferencia(href: string): Promise<ConteudoReferencia
   }
   const html = (await fetchProxy(alvoUrl)).texto;
   const doc = new DOMParser().parseFromString(html, "text/html");
-  const titulo = limpar(doc.querySelector("article h1, h1")?.textContent) || limpar(doc.title);
+  const titulo = textoVisivel(doc.querySelector("article h1, h1")) || limpar(doc.title);
   const hash = href.split("#")[1] ?? "";
   const numPar = hash.match(/^p(\d+)$/)?.[1];
   const biblia = /\/biblia\//i.test(href) || ids.length > 0;
@@ -752,7 +753,7 @@ export async function buscarReferencia(href: string): Promise<ConteudoReferencia
       if (!m) return;
       const n = Number(m[1]);
       if (n >= ini && n <= fim) {
-        const t = limpar(e.textContent);
+        const t = textoVisivel(e);
         if (t && !trechos.includes(t)) trechos.push(t);
       }
     });
@@ -764,10 +765,10 @@ export async function buscarReferencia(href: string): Promise<ConteudoReferencia
     alvo =
       doc.getElementById("p" + numPar) ??
       Array.from(root.querySelectorAll("p[data-pid]"))[Number(numPar) - 1];
-    if (alvo) return { titulo, trechos: [limpar(alvo.textContent)], biblia: false };
+    if (alvo) return { titulo, trechos: [textoVisivel(alvo)], biblia: false };
   }
   const trechos = Array.from(root.querySelectorAll("p"))
-    .map((p) => limpar(p.textContent))
+    .map((p) => textoVisivel(p))
     .filter((t) => t.length > 2 && !LIXO.test(t))
     .slice(0, 12);
   if (!trechos.length) throw new Error("Não encontramos o conteúdo desta referência.");

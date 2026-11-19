@@ -8,6 +8,20 @@ export function identificarSecao(texto: string): Secao | undefined {
   return undefined;
 }
 
+/** Texto do jw.org sem notas de rodapé (*, †), referências cruzadas (+) e
+ *  números de página/parágrafo, que não fazem parte do texto corrido. */
+export function textoVisivel(el: Element | null | undefined): string {
+  if (!el) return "";
+  const c = el.cloneNode(true) as Element;
+  c.querySelectorAll("a.fn, .fn, .footnote, sup, .parNum, .pageNum, .refID").forEach((x) => x.remove());
+  // `a.b` é citação bíblica nas publicações (manter) e "+" de referência
+  // cruzada na Bíblia (remover).
+  c.querySelectorAll("a.b").forEach((x) => {
+    if (/^[+*†‡§]+$/.test(x.textContent?.trim() ?? "")) x.remove();
+  });
+  return c.textContent?.replace(/\s+/g, " ").trim() ?? "";
+}
+
 export function elementosPublicacao(doc: Document) {
   const root =
     doc.querySelector(".slContentText, .bodyTxt")?.closest("article") ??
@@ -83,13 +97,13 @@ function idDoBloco(quadro: Element): string {
   const pid = quadro.querySelector("[data-pid]")?.getAttribute("data-pid");
   if (pid) return pid;
   if (quadro.id) return quadro.id;
-  return `caixa:${(quadro.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 32)}`;
+  return `caixa:${textoVisivel(quadro).slice(0, 32)}`;
 }
 
 export function estruturaDoElemento(
   el: Element,
 ): Pick<Paragrafo, "estilo" | "faixa" | "resposta" | "meps_id" | "bloco"> {
-  const texto = el.textContent?.replace(/\s+/g, " ").trim() ?? "";
+  const texto = textoVisivel(el);
   const quadro = el.closest(".boxSupplement, .blockTeach");
   return {
     meps_id: el.getAttribute("data-pid") ?? undefined,
@@ -105,7 +119,11 @@ export function estruturaDoElemento(
  *  "9 Pense no seguinte" e o novo "Pense no seguinte". Sem normalizar, o parágrafo
  *  não casa na remesclagem e as anotações caem no fim da lista. */
 function semNumero(texto: string): string {
-  return texto.replace(/^\d+\s+/, "").trim();
+  return texto
+    .replace(/^\d+\s+/, "")
+    .replace(/\s*[+*†‡§]+\s*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function mesclarEstrutura(antigos: Paragrafo[], novos: Paragrafo[], pubId: string) {

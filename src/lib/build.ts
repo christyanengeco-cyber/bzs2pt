@@ -7,8 +7,8 @@
  *  `versao` daqui para montar o versionName/versionCode e a startUrl do app
  *  (ver .github/workflows/apk.yml e src/lib/atualizacao.ts). Não duplicar. */
 export const BUILD = {
-  versao: "1.5.3",
-  data: "11/11/2026",
+  versao: "1.5.4",
+  data: "19/11/2026",
   /** O que mudou nesta versão.
    *
    *  REGRA: este texto NUNCA aparece aberto na tela. Ele fica escondido atrás
@@ -17,6 +17,7 @@ export const BUILD = {
    *  uma versão nova, escreva os itens aqui e deixe o padrão continuar
    *  escondido (index.tsx: rodapé com `aria-expanded` começando em false). */
   mudancas: [
+    "Os textos não mostram mais as notinhas de rodapé (*, †), as marcas de referência (+) nem números de página.",
     "Configurações agora rola dentro do próprio painel: nada mais fica cortado em tela pequena.",
     "Cada categoria das Configurações abre e fecha: Aparência, Tamanho do texto, Cor de destaque e App e atualizações.",
     "Backup ficou só com download: no computador o navegador pergunta a pasta, no celular o arquivo vai para Downloads.",

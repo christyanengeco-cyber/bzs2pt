@@ -1,5 +1,7 @@
 /** Texto diário em português, buscado sob demanda (um dia por vez) no wol.jw.org
  *  e guardado no aparelho. A data vem do relógio, então a virada de ano é automática. */
+import { textoVisivel } from "./publication-layout";
+
 export type Trecho = { t: string; href?: string };
 export type TextoDiario = { data: string; titulo: string; tema: Trecho[]; comentario: Trecho[][] };
 
@@ -28,8 +30,11 @@ function trechos(el: Element): Trecho[] {
   const out: Trecho[] = [];
   const andar = (n: Node) => {
     if (n.nodeType === 3) out.push({ t: n.textContent ?? "" });
+    else if (n instanceof Element && n.matches("a.fn, .fn, .footnote, sup, .parNum, .pageNum, .refID")) return;
     else if (n instanceof Element && n.tagName === "A" && n.getAttribute("href")) {
-      out.push({ t: n.textContent ?? "", href: new URL(n.getAttribute("href")!, WOL).href });
+      const t = (n.textContent ?? "").replace(/\s+/g, " ").trim();
+      if (!t || /^[+*†‡§]+$/.test(t)) return;
+      out.push({ t, href: new URL(n.getAttribute("href")!, WOL).href });
     } else n.childNodes.forEach(andar);
   };
   el.childNodes.forEach(andar);
@@ -70,13 +75,7 @@ export function extrairReferencia(
 ): { titulo: string; paragrafos: string[] } {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const hash = urlFinal.split("#")[1] ?? "";
-  const limpo = (e: Element) => {
-    const c = e.cloneNode(true) as Element;
-    c.querySelectorAll("a.fn, a.b, sup, .parNum").forEach((x) => {
-      if (!x.matches("a.b")) x.remove();
-    });
-    return c.textContent?.replace(/\s+/g, " ").trim() ?? "";
-  };
+  const limpo = (e: Element) => textoVisivel(e);
   const lerVersos = (l: string, c: string, numeros: number[]) =>
     numeros
       .map((n) => {

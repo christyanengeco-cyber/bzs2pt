@@ -184,6 +184,16 @@ describe("estrutura do leitor vinda do jw.org", () => {
     ]);
   });
 
+  it("remove notas de rodapé e referências cruzadas do corpo", async () => {
+    const comNotas = `<article>
+      <h1 data-pid="1">Título</h1>
+      <p data-pid="9">Texto<sup>*</sup> com nota<a class="fn" href="/fn/1">*</a> e ref<a class="b" href="/bc/1">+</a> fim. (<a class="b" href="/biblia">Rom. 12:9</a>)</p>
+    </article>`;
+    const { paragrafos } = await importarHtml(comNotas, "https://www.jw.org/pt/artigo/");
+    const corpo = paragrafos.find((p) => p.texto_portugues.startsWith("Texto"));
+    expect(corpo?.texto_portugues).toBe("Texto com nota e ref fim. (Rom. 12:9)");
+  });
+
   it("reconhece o texto do link como lixo, com ou sem o artigo", () => {
     expect(LIXO.test("Baixar o vídeo")).toBe(true);
     expect(LIXO.test("Baixar vídeo")).toBe(true);
