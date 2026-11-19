@@ -24,6 +24,7 @@ import {
   type CorInterface,
   type Tema,
 } from "@/lib/appearance";
+import { definirTextoDiario, textoDiarioAtivo } from "@/lib/texto-diario";
 
 /** Uma seção do painel. Todas fecham e abrem, para o painel caber na tela do
  *  celular mesmo com tudo preenchido: cada categoria ocupa só a linha do título
@@ -52,6 +53,7 @@ export function ThemeToggle() {
   const [cor, setCor] = useState<CorInterface>("lilas");
   const [escala, setEscala] = useState(1);
   const [tutorial, setTutorial] = useState(false);
+  const [diario, setDiario] = useState(true);
 
   useEffect(() => {
     const salvo = localStorage.getItem("tema");
@@ -61,6 +63,7 @@ export function ThemeToggle() {
     const corSalva = corValida(localStorage.getItem("cor-interface"));
     setCor(corSalva);
     aplicarCor(corSalva);
+    setDiario(textoDiarioAtivo());
     const e = Number(localStorage.getItem("escala-texto")) || 1;
     setEscala(e);
     document.documentElement.style.setProperty("--escala-texto", String(e));
@@ -153,6 +156,21 @@ export function ThemeToggle() {
                   </Button>
                 ))}
               </div>
+            </Secao>
+
+            <Secao valor="diario" titulo="Texto diário">
+              <label className="flex items-center justify-between gap-3 text-sm">
+                Exibir texto diário na tela inicial
+                <input
+                  type="checkbox"
+                  checked={diario}
+                  onChange={(ev) => {
+                    setDiario(ev.target.checked);
+                    definirTextoDiario(ev.target.checked);
+                  }}
+                  className="h-5 w-5 accent-primary"
+                />
+              </label>
             </Secao>
 
             <Secao valor="app" titulo="App e atualizações">

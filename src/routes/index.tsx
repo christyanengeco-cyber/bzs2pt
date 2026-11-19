@@ -37,6 +37,7 @@ import {
   ordenarSemanasCronologicamente,
 } from "@/lib/study-dates";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { TextoDiarioCard } from "@/components/TextoDiarioCard";
 import { TutorialDialog } from "@/components/TutorialDialog";
 import { agruparReunioes } from "@/lib/meeting-weeks";
 import { BackupDialog } from "@/components/BackupDialog";
@@ -232,6 +233,8 @@ function Biblioteca() {
           <ThemeToggle />
         </div>
       </header>
+
+      <TextoDiarioCard />
 
       <div
         className="grid grid-cols-2 border-b bg-card px-4 pt-2"
