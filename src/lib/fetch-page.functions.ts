@@ -84,8 +84,8 @@ async function baixarDe(url: string, saltos = 0): Promise<{ texto: string; urlFi
     const bruto = await resposta.clone().text();
     const m = /http-equiv="refresh"\s+content="0;url='([^']+)'/i.exec(bruto.slice(0, 2000));
     if (m) {
-      const destino = new URL(m[1], url).href;
-      const r = await baixarDe(destino.split("#")[0], saltos + 1);
+      const destino = new URL(m[1]!, url).href;
+      const r = await baixarDe(destino.split("#")[0]!, saltos + 1);
       return { texto: r.texto, urlFinal: destino };
     }
   }
