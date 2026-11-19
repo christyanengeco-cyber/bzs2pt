@@ -57,7 +57,7 @@ Guarde `release.jks` e `SENHA_FORTE`. Sem eles não existe atualização futura.
 ### 2. Subir como segredo no GitHub
 
 Estado atual: **já feito**. O keystore existe em
-`C:\Users\Usuario\Documents\estudo-em-libras-apk\release.jks`, a senha em
+`C:\Users\Usuario\Documents\oc\estudo-em-libras-apk\release.jks`, a senha em
 `SENHA.txt` na mesma pasta, e os quatro segredos já estão gravados no repositório.
 Mova a senha para o gerenciador de senhas e apague o `SENHA.txt` do disco.
 
