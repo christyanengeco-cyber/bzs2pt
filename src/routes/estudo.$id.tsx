@@ -1335,6 +1335,7 @@ function ParagrafoView({
           value={texto}
           onChange={(e) => escrever(e.target.value)}
           placeholder="Minha anotação… (salva automaticamente)"
+          spellCheck={false}
           rows={3}
           className="mt-1 w-full rounded-md border bg-transparent p-3 text-[0.9em] outline-none focus:ring-2 focus:ring-ring"
         />

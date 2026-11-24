@@ -13,10 +13,10 @@ export function identificarSecao(texto: string): Secao | undefined {
 export function textoVisivel(el: Element | null | undefined): string {
   if (!el) return "";
   const c = el.cloneNode(true) as Element;
-  c.querySelectorAll("a.fn, .fn, .footnote, sup, .parNum, .pageNum, .refID").forEach((x) => x.remove());
+  c.querySelectorAll("a.fn, .fn, .footnote, a.footnoteLink, a.xrefLink, sup, .parNum, .pageNum, .refID").forEach((x) => x.remove());
   // `a.b` é citação bíblica nas publicações (manter) e "+" de referência
   // cruzada na Bíblia (remover).
-  c.querySelectorAll("a.b").forEach((x) => {
+  c.querySelectorAll("a.b, a, span").forEach((x) => {
     if (/^[+*†‡§]+$/.test(x.textContent?.trim() ?? "")) x.remove();
   });
   return c.textContent?.replace(/\s+/g, " ").trim() ?? "";
